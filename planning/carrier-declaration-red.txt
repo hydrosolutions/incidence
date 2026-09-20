@@ -1,0 +1,45 @@
+FSTAGED {'left': [1, 2, 1], 'right': [2, 1, 0]} {'salt': {'left': [2, 3, 3], 'right': [4, 1, 0]}, 'tracer': {'left': [3, 6, 4], 'right': [7, 3, 0]}} [(2, {'salt': 4, 'tracer': 8}), (1, {'salt': 3, 'tracer': 4}), (0, {'salt': 0, 'tracer': 0})]
+.FLOAT_REENTRY 8788444088577676 8788444088577675
+.SAME_TURN [2] [0]
+.STAGED_ZERO {'water': [0, 0], 'mass': [0, 0]} IDENTITY dfa1adb48d86b302d995ba2b901e77142cf2e500fa8a2e07e3704aa4598969a1 359f152be9af2dfc953b8e25153cc77c8b815ef0791b91574098f022fa969919
+.FDRY dry retained 1 then rewet out 4/1
+.ONE_INTERVAL_DELAY [0, 10]
+.ACCEPTANCE 0 0 15 9 6 9 (36, 54, 0)
+.ACCEPTANCE 20 4 10 4 30 0 (80, 0, 0)
+.ACCEPTANCE 20 4 10 4 15 0 (40, 0, 40)
+.ACCEPTANCE 0 0 15 9 10 5 (60, 30, 0)
+..
+=================================== FAILURES ===================================
+_________________ test_desired_zero_carrier_carries_zero_mass __________________
+
+    def test_desired_zero_carrier_carries_zero_mass():
+        doc=zero_document()
+        doc["rules"][-1]["disposition"]=coupled_partition()
+>       run=i.compile_model(doc).run(RID)
+            ^^^^^^^^^^^^^^^^^^^^
+E       ValueError: invalid model document encoding: unknown variant `carrier_proportional`, expected one of `retain_all`, `release_all`, `fixed_fraction_split`, `exogenous_series`, `constant_fraction_transfer`, `expression_partition`
+
+tests/test_carrier_experiments.py:36: ValueError
+________________ test_multisubstance_delay_existing_primitives _________________
+
+    def test_multisubstance_delay_existing_primitives():
+        from test_authoritative_count_series import projection_spec
+        doc=document({"water":0,"mass":0},{"water":[10,0],"mass":[5,0]}, {s:{"left":[0,0],"right":[0,0]} for s in ["water","mass"]},{"water":1,"mass":1},2)
+        for s in ["water","mass"]:
+            spec=projection_spec(s+"-lag","pool")
+            spec["spec"]["source"]["selector"]["substance"]=s
+            spec["spec"]={"kind":"bounded_lag","source":spec["spec"]["source"],"steps":1}
+            doc["projections"]["specifications"].append(spec)
+            doc["projections"]["initial_states"].append({"projection":s+"-lag","values":[{"kind":"extensive","value":0}]})
+            for rule in doc["rules"]:
+                if rule["compartment"]=="pool" and rule["substance"]==s:
+                    rule["disposition"]=partition({"left":i.projection(s+"-lag",value_kind="extensive"),"right":i.literal(0)})
+>       run=i.compile_model(doc).run(RID)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: rule for compartment `pool`, substance `mass` cannot resolve authoritative fact substance `mass` at timestep TimestepIndex(1)
+
+tests/test_carrier_experiments.py:149: ValueError
+=========================== short test summary info ============================
+FAILED tests/test_carrier_experiments.py::test_desired_zero_carrier_carries_zero_mass
+FAILED tests/test_carrier_experiments.py::test_multisubstance_delay_existing_primitives
+2 failed, 11 passed in 0.03s

@@ -31,7 +31,9 @@ def zero_document():
     return document({"water":1,"mass":1},{"water":[0],"mass":[0]}, {s:{"left":[.5],"right":[.5]} for s in ["water","mass"]},{"water":1,"mass":.1})
 
 def test_desired_zero_carrier_carries_zero_mass():
-    run=i.compile_model(zero_document()).run(RID)
+    doc=zero_document()
+    doc["rules"][-1]["disposition"]=coupled_partition()
+    run=i.compile_model(doc).run(RID)
     actual={s:[counts(run,b,s)[0] for b in ["left","right"]] for s in ["water","mass"]}
     print("ACTUAL_ZERO",actual,flush=True)
     assert actual=={"water":[0,0],"mass":[0,0]}
@@ -189,3 +191,13 @@ def test_staged_acceptance_pools(initial_w,initial_m,in_w,in_m,left,right,expect
     actual=tuple(counts(mass,b,"mass")[0] for b in ["left","right"])
     assert (*actual,pool_m-sum(actual))==expected
     print("ACCEPTANCE",initial_w,initial_m,in_w,in_m,left,right,expected,flush=True)
+
+
+def coupled_partition(carrier="water", branches=("left","right")):
+    return {"rule_ir_version":"v1","numerical_semantics_version":"v1","partition":{"kind":"carrier_proportional","carrier":carrier,"branches":[{"branch":b,"carrier_branch":b} for b in branches]}}
+
+
+def test_independent_partitions_keep_independent_semantics():
+    run=i.compile_model(zero_document()).run(RID)
+    assert counts(run,"pool","water","outgoing")==[0]
+    assert counts(run,"pool","mass","outgoing")==[10]
