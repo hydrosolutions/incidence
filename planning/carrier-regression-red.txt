@@ -1,0 +1,59 @@
+ACTUAL_ZERO {'water': [0, 0], 'mass': [5, 5]}
+FSTAGED {'left': <incidence._incidence._PresenceCountValues object at 0x1037648b0>, 'right': <incidence._incidence._PresenceCountValues object at 0x1037675b0>} {'salt': {'left': [2, 3, 3], 'right': [4, 1, 0]}, 'tracer': {'left': [3, 6, 4], 'right': [7, 3, 0]}} [(2, {'salt': 4, 'tracer': 8}), (1, {'salt': 3, 'tracer': 4}), (0, {'salt': 0, 'tracer': 0})]
+F
+=================================== FAILURES ===================================
+_________________ test_desired_zero_carrier_carries_zero_mass __________________
+
+    def test_desired_zero_carrier_carries_zero_mass():
+        run=i.compile_model(zero_document()).run(RID)
+        actual={s:[counts(run,b,s)[0] for b in ["left","right"]] for s in ["water","mass"]}
+        print("ACTUAL_ZERO",actual,flush=True)
+>       assert actual=={"water":[0,0],"mass":[0,0]}
+E       AssertionError: assert {'water': [0,...mass': [5, 5]} == {'water': [0,...mass': [0, 0]}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'mass': [5, 5]} != {'mass': [0, 0]}
+E         Use -v to get more diff
+
+tests/test_carrier_experiments.py:37: AssertionError
+____ test_staged_complete_mixing_nonround_recurrence_multiple_constituents _____
+
+    def test_staged_complete_mixing_nonround_recurrence_multiple_constituents():
+        water_doc=document({"water":2},{"water":[3,2,0]}, {"water":{"left":[1.5,2.4,1],"right":[2.5,1.6,0]}},{"water":1},3)
+        water=i.compile_model(water_doc).run(RID)
+        released={b:counts(water,b,"water") for b in ["left","right"]}
+        assert released=={"left":[1,2,1],"right":[2,1,0]}
+        water_pool=2
+        initial={"salt":4,"tracer":11}
+        inputs={"salt":[6,3,0],"tracer":[7,5,0]}
+        pools=initial.copy()
+        outputs={s:{b:[] for b in released} for s in initial}
+        retained=[]
+        for t in range(3):
+            water_pool += [3,2,0][t]
+            for s in initial:
+                pools[s]+=inputs[s][t]
+                allocations={b:pools[s]*released[b][t]//water_pool for b in released}
+                for b,v in allocations.items(): outputs[s][b].append(v)
+                pools[s]-=sum(allocations.values())
+            water_pool-=sum(released[b][t] for b in released)
+            retained.append((water_pool,pools.copy()))
+        doc=document(initial,inputs,outputs,{s:1 for s in initial},3)
+        model=i.compile_model(doc)
+        mass=model.run(RID)
+        for s in initial:
+            for b in released: assert counts(mass,b,s)==outputs[s][b]
+            assert sum(counts(mass,"pool",s,"outgoing"))+pools[s]==initial[s]+sum(inputs[s])
+        assert outputs["salt"]=={"left":[2,3,3],"right":[4,1,0]}
+        assert retained==[(2,{"salt":4,"tracer":8}),(1,{"salt":3,"tracer":4}),(0,{"salt":0,"tracer":0})]
+        print("STAGED",released, outputs, retained,flush=True)
+        assert mass.authoritative_log()==model.run(RID).authoritative_log()
+>       mass.replay_against(model)
+E       TypeError: argument 'other': 'CompiledModel' object cannot be cast as 'CompletedRun'
+
+tests/test_carrier_experiments.py:70: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_carrier_experiments.py::test_desired_zero_carrier_carries_zero_mass
+FAILED tests/test_carrier_experiments.py::test_staged_complete_mixing_nonround_recurrence_multiple_constituents
+2 failed in 0.16s
