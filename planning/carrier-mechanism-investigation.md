@@ -1,5 +1,7 @@
 # Realised-carrier mechanism investigation
 
+Status: historical investigation recorded before implementation on 2026-09-20. The no-edit/no-repair statements and red results below describe that checkpoint. See [carrier-delivery.md](carrier-delivery.md) for the delivered implementation and final validation.
+
 Effort: https://github.com/hydrosolutions/taqsim/issues/22
 
 ## Scope and reproducibility

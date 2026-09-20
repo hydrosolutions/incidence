@@ -1,0 +1,754 @@
+Final validation at implementation working tree before commit, 2026-09-20.
+
+$ cargo fmt --all --check
+exit: 0
+
+
+$ cargo check --workspace --all-targets
+exit: 0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Checking incidence-core v0.1.0 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments/crates/core)
+    Checking incidence-python v0.1.4 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments/bindings/python)
+    Checking incidence v0.1.4 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.73s
+
+
+$ cargo clippy --workspace --all-targets
+exit: 0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Checking incidence-core v0.1.0 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments/crates/core)
+warning: this function has a `#[must_use]` attribute with no message, but returns a type already marked as `#[must_use]`
+  --> crates/core/src/initial_stocks.rs:82:5
+   |
+82 |     pub fn iter(&self) -> impl Iterator<Item = (&CompartmentId, &SparseSubstanceVector)> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: remove `must_use`
+  --> crates/core/src/initial_stocks.rs:81:5
+   |
+81 |     #[must_use]
+   |     ^^^^^^^^^^^
+   = note: alternatively, you may add an explicit reason to the `must_use` attribute
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#double_must_use
+   = note: `#[warn(clippy::double_must_use)]` on by default
+
+warning: this function has a `#[must_use]` attribute with no message, but returns a type already marked as `#[must_use]`
+   --> crates/core/src/initial_stocks.rs:100:5
+    |
+100 | /     pub fn amount(
+101 | |         &self,
+102 | |         compartment: &CompartmentId,
+103 | |         substance: &SubstanceId,
+104 | |     ) -> Result<ValueState<NonNegativeAmount>, InitialStocksError> {
+    | |__________________________________________________________________^
+    |
+help: remove `must_use`
+   --> crates/core/src/initial_stocks.rs:99:5
+    |
+ 99 |     #[must_use]
+    |     ^^^^^^^^^^^
+    = note: alternatively, you may add an explicit reason to the `must_use` attribute
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#double_must_use
+
+warning: method `add` can be confused for the standard trait method `std::ops::Add::add`
+   --> crates/core/src/rule_expression.rs:311:5
+    |
+311 | /     pub fn add(lhs: Self, rhs: Self) -> Result<Self, RuleExprError> {
+312 | |         Self::binary(lhs, rhs, RuleExprOperation::Add, RuleNode::Add)
+313 | |     }
+    | |_____^
+    |
+    = help: consider implementing the trait `std::ops::Add` or choosing a less ambiguous method name
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#should_implement_trait
+    = note: `#[warn(clippy::should_implement_trait)]` on by default
+
+warning: `incidence-core` (lib test) generated 3 warnings (3 duplicates)
+warning: `incidence-core` (lib) generated 3 warnings
+    Checking incidence-python v0.1.4 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments/bindings/python)
+warning: using `chunks_exact` with a constant chunk size
+  --> crates/core/tests/forcing_and_tables.rs:75:10
+   |
+75 |         .chunks_exact(2)
+   |          ^^^^^^^^^^^^^^^ help: consider using `as_chunks` instead: `as_chunks::<2>().0.iter()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#chunks_exact_to_as_chunks
+   = note: `#[warn(clippy::chunks_exact_to_as_chunks)]` on by default
+
+    Checking incidence v0.1.4 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments)
+warning: `incidence-core` (test "forcing_and_tables") generated 1 warning (run `cargo clippy --fix --test "forcing_and_tables" -p incidence-core -- ` to apply 1 suggestion)
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> crates/core/tests/rule_ir.rs:499:19
+    |
+499 |       let binaries: [(
+    |  ___________________^
+500 | |         RuleExprOperation,
+501 | |         fn(RuleExpr, RuleExpr) -> Result<RuleExpr, RuleExprError>,
+502 | |     ); 6] = [
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#type_complexity
+    = note: `#[warn(clippy::type_complexity)]` on by default
+
+warning: `incidence-core` (test "rule_ir") generated 1 warning
+warning: this `if` statement can be collapsed
+  --> tests/sync_doctrine.rs:49:9
+   |
+49 | /         if let Err(error) = fs::remove_dir_all(&self.path) {
+50 | |             if !std::thread::panicking() {
+51 | |                 panic!("temporary tree must be removed: {error}");
+52 | |             }
+53 | |         }
+   | |_________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+   = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+   |
+49 ~         if let Err(error) = fs::remove_dir_all(&self.path)
+50 ~             && !std::thread::panicking() {
+51 |                 panic!("temporary tree must be removed: {error}");
+52 ~             }
+   |
+
+warning: `incidence` (test "sync_doctrine") generated 1 warning (run `cargo clippy --fix --test "sync_doctrine" -p incidence -- ` to apply 1 suggestion)
+warning: using `chunks_exact` with a constant chunk size
+   --> src/bin/sync_doctrine.rs:326:25
+    |
+326 |     for chunk in padded.chunks_exact(64) {
+    |                         ^^^^^^^^^^^^^^^^ help: consider using `as_chunks` instead: `as_chunks::<64>().0`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#chunks_exact_to_as_chunks
+    = note: `#[warn(clippy::chunks_exact_to_as_chunks)]` on by default
+
+warning: `incidence` (bin "sync_doctrine") generated 1 warning (run `cargo clippy --fix --bin "sync_doctrine" -p incidence -- ` to apply 1 suggestion)
+warning: this `if` statement can be collapsed
+   --> src/bin/sync_doctrine.rs:462:13
+    |
+462 | /             if let Err(error) = fs::remove_dir_all(&self.path) {
+463 | |                 if !std::thread::panicking() {
+464 | |                     panic!("temporary tree must be removed: {error}");
+465 | |                 }
+466 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+462 ~             if let Err(error) = fs::remove_dir_all(&self.path)
+463 ~                 && !std::thread::panicking() {
+464 |                     panic!("temporary tree must be removed: {error}");
+465 ~                 }
+    |
+
+warning: `incidence` (bin "sync_doctrine" test) generated 2 warnings (1 duplicate) (run `cargo clippy --fix --bin "sync_doctrine" -p incidence --tests -- ` to apply 1 suggestion)
+warning: the following explicit lifetimes could be elided: 'a
+   --> crates/core/tests/canonical_encoding.rs:553:29
+    |
+553 | fn recurrence_tag_positions<'a>(
+    |                             ^^
+554 |     bytes: &'a [u8],
+    |             ^^
+555 | ) -> (Vec<usize>, Vec<usize>, Vec<usize>, Vec<&'a str>) {
+    |                                                ^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_lifetimes
+    = note: `#[warn(clippy::needless_lifetimes)]` on by default
+help: elide the lifetimes
+    |
+553 ~ fn recurrence_tag_positions(
+554 ~     bytes: &[u8],
+555 ~ ) -> (Vec<usize>, Vec<usize>, Vec<usize>, Vec<&str>) {
+    |
+
+warning: `incidence-core` (test "canonical_encoding") generated 1 warning (run `cargo clippy --fix --test "canonical_encoding" -p incidence-core -- ` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.65s
+
+
+$ cargo test --workspace
+exit: 0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling incidence-core v0.1.0 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments/crates/core)
+   Compiling incidence-python v0.1.4 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments/bindings/python)
+   Compiling incidence v0.1.4 (/Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.84s
+     Running unittests src/main.rs (target/debug/deps/incidence-405b93d32c4901c5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/sync_doctrine.rs (target/debug/deps/sync_doctrine-9a10bd7a0927d4e9)
+
+running 2 tests
+test tests::hashes_literal_doctrine_body ... ok
+test tests::rejects_an_edited_source_before_touching_target ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sync_doctrine.rs (target/debug/deps/sync_doctrine-93810e665d22be94)
+
+running 17 tests
+test repository_contains_the_exact_language_neutral_spine ... ok
+test temporary_tree_guard_removes_the_complete_tree ... ok
+test refuses_reversed_markers_without_writing ... ok
+test check_rejects_partial_begin_marker_without_writing ... ok
+test check_classifies_unstamped_offline_with_empty_home_without_writing ... ok
+test check_rejects_partial_end_marker_without_writing ... ok
+test refuses_malformed_stamp_without_writing ... ok
+test check_refuses_a_nonexistent_target_without_creating_it ... ok
+test check_rejects_extra_arguments_with_exact_usage ... ok
+test check_classifies_current_without_writing ... ok
+test check_classifies_stale_and_names_stamp_gap_without_writing ... ok
+test refuses_duplicate_begin_marker_without_writing ... ok
+test refuses_markerless_target_without_writing ... ok
+test refuses_a_locally_edited_target_without_writing ... ok
+test refuses_a_nonexistent_target_without_creating_it ... ok
+test check_classifies_local_edit_and_names_all_stamps_without_writing ... ok
+test updates_a_clean_stale_target_then_performs_no_idempotent_write ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running unittests src/lib.rs (target/debug/deps/incidence_core-217798b00d2425d8)
+
+running 16 tests
+test endpoints::tests::endpoint_types_preserve_identity_and_are_structurally_distinct ... ok
+test identity::tests::accepts_and_preserves_valid_compartment_identity ... ok
+test canonical_encoding::tests::scalar_encoding_canonicalizes_zero_and_rejects_non_finite_values ... ok
+test identity::tests::orders_identities_by_exact_stored_bytes ... ok
+test identity::tests::permits_trailing_and_repeated_separators ... ok
+test identity::tests::accepts_and_preserves_valid_substance_identity ... ok
+test identity::tests::rejects_compartment_identity_with_invalid_start ... ok
+test identity::tests::rejects_empty_compartment_identity ... ok
+test identity::tests::rejects_invalid_ascii_character ... ok
+test identity::tests::rejects_substance_identity_with_invalid_start ... ok
+test identity::tests::reports_non_ascii_character_at_utf8_byte_offset ... ok
+test partition_expression::tests::accumulation_error_mapping_preserves_the_complete_cause ... ok
+test substance_registry::tests::canonical_order_is_independent_of_insertion_order ... ok
+test substance_registry::tests::exposes_size_and_membership_queries ... ok
+test substance_registry::tests::permits_empty_registry ... ok
+test substance_registry::tests::rejects_first_repeated_identity ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/authoritative_count_projection.rs (target/debug/deps/authoritative_count_projection-b62f46136cbd35be)
+
+running 1 test
+test authoritative_count_projection_does_not_redecode_an_ambiguous_f64_sum ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/canonical_encoding.rs (target/debug/deps/canonical_encoding-28d30aa183878802)
+
+running 19 tests
+test projection_kind_tags_are_pinned_extensive_zero_scalar_one_truth_two ... ok
+test calendar_and_horizon_fields_have_exact_distinct_encodings ... ok
+test partition_variants_have_exact_v1_encodings_and_tags ... ok
+test registry_and_sparse_views_define_canonical_constructor_order_and_zero ... ok
+test registry_membership_is_never_conflated_for_zero_sparse_vectors ... ok
+test recurrence_output_index_changes_canonical_bytes_in_a_two_slot_state ... ok
+test parameter_declaration_order_and_kind_tags_are_pinned ... ok
+test initial_stock_entry_presence_is_explicit_and_input_order_is_canonical ... ok
+test rule_expression_discriminating_fields_change_exact_bytes ... ok
+test initial_state_kind_and_truth_payload_tags_are_exact ... ok
+test recurrence_state_and_previous_state_kind_tags_are_pinned_at_every_position ... ok
+test topology_endpoint_kind_and_connection_direction_are_explicit ... ok
+test recurrence_input_selector_direction_tags_discriminate_incoming_from_outgoing ... ok
+test version_identities_have_distinct_exact_v1_encodings ... ok
+test selector_direction_tags_discriminate_incoming_from_outgoing ... ok
+test rule_expression_variants_have_exact_v1_encodings_and_tags ... ok
+test topology_golden_is_canonical_across_constructor_permutations ... ok
+test projection_specifications_and_states_have_exact_v1_encodings ... ok
+test projection_canonical_encoding_discriminates_every_planned_field_and_normalizes_order ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/canonical_root_tags.rs (target/debug/deps/canonical_root_tags-fb4b0dd986f7383d)
+
+running 1 test
+test canonical_root_tags_are_unique_across_projection_and_forcing_types ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/carrier_proportional.rs (target/debug/deps/carrier_proportional-8eb8a5f7f93192f1)
+
+running 15 tests
+test duplicate_carrier_branch_is_rejected_at_construction ... ok
+test duplicate_dependent_branch_is_rejected_at_construction ... ok
+test missing_carrier_branch_and_mismatched_destination_are_rejected ... ok
+test unregistered_and_missing_same_compartment_carrier_are_rejected ... ok
+test aggregate_initial_stock_one_count_above_ceiling_is_rejected ... ok
+test self_carrier_and_dependent_carrier_are_rejected ... ok
+test carrier_overdraw_is_rejected_before_coupled_transfers ... ok
+test near_ceiling_multiplication_is_exact_in_u128 ... ok
+test subset_mapping_retains_unmapped_share ... ok
+test dry_carrier_retains_all_dependent_stock ... ok
+test lexical_carrier_order_does_not_change_counts ... ok
+test replay_rejects_changed_mapping_or_precision_artifact ... ok
+test mapping_and_author_order_have_canonical_identity ... ok
+test non_round_multiple_dependents_use_available_stock_and_realised_carrier ... ok
+test every_transfer_prefix_resumes_to_identical_completed_log ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/conservation_closure.rs (target/debug/deps/conservation_closure-bfb545228a4a753a)
+
+running 4 tests
+test finite_and_boundary_accounts_close_exactly ... ok
+test criterion_suite::zero_transfer_is_authoritative_and_seal_authenticates_it ... ok
+test criterion_suite::unmodelled_is_not_zero_and_digest_mismatch_is_rejected ... ok
+test criterion_suite::replay_is_dense_exact_and_seal_distinguishes_prefix ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dense_projection_dry_stretch.rs (target/debug/deps/dense_projection_dry_stretch-f3b494f1f06b6d04)
+
+running 2 tests
+test an_unsealed_prefix_cannot_claim_that_a_dry_suffix_is_zero ... ok
+test dense_projection_preserves_a_forty_step_dry_stretch ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/digest_binding.rs (target/debug/deps/digest_binding-08623b3ae168bceb)
+
+running 3 tests
+test criterion_suite::zero_transfer_is_authoritative_and_seal_authenticates_it ... ok
+test criterion_suite::unmodelled_is_not_zero_and_digest_mismatch_is_rejected ... ok
+test criterion_suite::replay_is_dense_exact_and_seal_distinguishes_prefix ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/disposition_totality.rs (target/debug/deps/disposition_totality-272ad10ea9ac9809)
+
+running 2 tests
+test a_held_registered_substance_must_be_explicitly_disposed ... ok
+test complete_explicit_partitions_commit_their_outgoing_transfers ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/execution_binding_cycles.rs (target/debug/deps/execution_binding_cycles-ada90ccccd4a35ad)
+
+running 1 test
+test transfer_bindings_cannot_create_an_execution_cycle ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/execution_binding_digest.rs (target/debug/deps/execution_binding_digest-80096910018fa2b3)
+
+running 4 tests
+test execution_binding_cases::input_binding_cannot_misstate_the_rule_leaf_kind ... ok
+test execution_binding_cases::missing_and_undeclared_branch_destinations_never_produce_an_artifact ... ok
+test execution_binding_cases::branch_destinations_and_rule_input_sources_are_structurally_resolved ... ok
+test execution_binding_cases::changing_only_a_branch_destination_changes_canonical_identity ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/execution_bindings.rs (target/debug/deps/execution_bindings-7f5f609d4e6bf738)
+
+running 4 tests
+test input_binding_cannot_misstate_the_rule_leaf_kind ... ok
+test missing_and_undeclared_branch_destinations_never_produce_an_artifact ... ok
+test changing_only_a_branch_destination_changes_canonical_identity ... ok
+test branch_destinations_and_rule_input_sources_are_structurally_resolved ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/expression_partition.rs (target/debug/deps/expression_partition-7c1a7103979fe675)
+
+running 4 tests
+test expression_partition_roundtrips_in_canonical_branch_order ... ok
+test expression_partition_conservation_rejects_aggregate_overdraw ... ok
+test expression_partition_accepts_conservative_decimal_amounts ... ok
+test expression_partition_gives_each_named_branch_its_computed_amount ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/forcing_and_tables.rs (target/debug/deps/forcing_and_tables-e4187e45b130c16a)
+
+running 25 tests
+test forcing_series_canonical_encoding_is_exact_and_mutation_sensitive ... ok
+test forcing_series_rejects_each_non_finite_value_at_its_timestep ... ok
+test forcing_series_preserves_shape_presence_and_bits ... ok
+test forcing_series_normalizes_negative_zero_at_every_offset ... ok
+test forcing_series_normalizes_negative_zero_at_non_first_offsets ... ok
+test existing_forcing_and_table_identity_wires_remain_exact ... ok
+test forcing_series_rejects_invalid_counts_without_overflow ... ok
+test forcing_series_normalizes_zero_and_round_trips_exact_wire ... ok
+test forcing_series_serde_rejects_every_malformed_wire ... ok
+test interpolation_table_normalizes_abscissae_before_ordinates ... ok
+test interpolation_table_normalizes_negative_zero_at_every_ordinate_index ... ok
+test interpolation_table_canonical_encodings_are_exact_and_mutation_sensitive ... ok
+test interpolation_table_normalizes_negative_zero_ordinate ... ok
+test interpolation_table_normalizes_negative_zero_at_last_abscissa ... ok
+test interpolation_table_normalizes_negative_zero_at_non_first_abscissa ... ok
+test interpolation_table_normalizes_ordinates_before_checking_abscissa_order ... ok
+test interpolation_table_preserves_shape_order_and_bits ... ok
+test interpolation_table_rejects_first_non_increasing_pair_after_zero_normalization ... ok
+test interpolation_table_rejects_invalid_shape_and_non_finite_coordinates ... ok
+test evaporation_shaped_fixture_uses_only_public_closed_ir ... ok
+test interpolation_table_reports_count_mismatch_before_too_few_points ... ok
+test one_value_forcing_series_is_not_empty ... ok
+test two_point_interpolation_table_is_not_empty ... ok
+test interpolation_table_wire_and_policy_tokens_are_exact ... ok
+test interpolation_table_serde_rejects_every_malformed_wire ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hydrology_fixture_expression.rs (target/debug/deps/hydrology_fixture_expression-13a6b55d439f33f9)
+
+running 1 test
+test seven_named_hydrology_fixtures_are_expressible_in_neutral_ir ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hydrology_fixture_run.rs (target/debug/deps/hydrology_fixture_run-f98c4bf8e9f4cc5e)
+
+running 1 test
+test all_seven_hydrology_rules_run_to_completion_in_one_model ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/initial_stocks.rs (target/debug/deps/initial_stocks-5a2dbd74fddcb295)
+
+running 8 tests
+test empty_inputs_remain_valid_and_exact ... ok
+test duplicate_compartment_fails_before_map_overwrite ... ok
+test unknown_assignment_fails ... ok
+test boundary_account_assignment_fails ... ok
+test invalid_lookup_fails_loudly ... ok
+test registry_mismatch_fails_structurally ... ok
+test omitted_pairs_are_explicit_modelled_zero ... ok
+test valid_binding_accessors_topology_order_and_repeatability ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ledger.rs (target/debug/deps/ledger-65051b6946134671)
+
+running 3 tests
+test zero_transfer_is_authoritative_and_seal_authenticates_it ... ok
+test unmodelled_is_not_zero_and_digest_mismatch_is_rejected ... ok
+test replay_is_dense_exact_and_seal_distinguishes_prefix ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ledger_replay.rs (target/debug/deps/ledger_replay-d8e003f6120650c7)
+
+running 3 tests
+test criterion_suite::zero_transfer_is_authoritative_and_seal_authenticates_it ... ok
+test criterion_suite::unmodelled_is_not_zero_and_digest_mismatch_is_rejected ... ok
+test criterion_suite::replay_is_dense_exact_and_seal_distinguishes_prefix ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/linear_reservoir_fixture.rs (target/debug/deps/linear_reservoir_fixture-7859f82c0880095e)
+
+running 1 test
+test linear_reservoir_releases_a_fraction_of_remaining_storage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/model_artifact_digest.rs (target/debug/deps/model_artifact_digest-8580340b01fc0aea)
+
+running 2 tests
+test digest_discriminates_forcing_values_and_numerical_semantics_versions ... ok
+test archive_retains_every_historical_artifact_by_digest ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/model_artifact_projection_bindings.rs (target/debug/deps/model_artifact_projection_bindings-e86f60004fc403ba)
+
+running 1 test
+test rejects_projection_fact_selectors_outside_artifact_domains ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/model_document.rs (target/debug/deps/model_document-c909f1bb84925258)
+
+running 5 tests
+test invalid_initial_stock_is_rejected_without_an_artifact ... ok
+test unknown_document_version_is_rejected_during_decode ... ok
+test contradictory_projection_value_kind_is_rejected ... ok
+test author_order_does_not_change_artifact_identity ... ok
+test document_decodes_to_the_same_canonical_artifact ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/model_round_trip.rs (target/debug/deps/model_round_trip-79107735d1af12bc)
+
+running 1 test
+test decoded_hydrology_model_emits_the_identical_transfer_log ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/numerical_conservation.rs (target/debug/deps/numerical_conservation-f263d8939db56876)
+
+running 1 test
+test replay_rejects_a_transfer_smaller_than_one_quantum ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/numerical_domain.rs (target/debug/deps/numerical_domain-2c3f3ebf25f7101a)
+
+running 11 tests
+test non_negative_amount_rejects_invalid_values_and_normalizes_zero ... ok
+test every_scalar_entry_point_rejects_each_non_finite_operand_position ... ok
+test signed_boundary_balance_accepts_both_signs_and_normalizes_zero ... ok
+test v1_accumulation_fails_loudly_on_overflow ... ok
+test v1_accumulation_returns_canonical_positive_zero ... ok
+test v1_accumulation_uses_authoritative_input_order ... ok
+test v1_arithmetic_rejects_non_finite_results_with_operation_metadata ... ok
+test v1_comparisons_truth_and_selection_are_exact ... ok
+test v1_linear_interpolation_pins_six_operation_order ... ok
+test v1_rejects_invalid_bounds_with_exact_canonical_bits ... ok
+test v1_scalar_operations_canonicalize_zero_and_pin_ordinary_results ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/overdraw_rejection.rs (target/debug/deps/overdraw_rejection-e274aaf90f324380)
+
+running 2 tests
+test a_late_invalid_transfer_leaves_earlier_staged_transfers_unpublished ... ok
+test aggregate_overdraw_rejects_the_whole_transaction ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/parameter_substitution.rs (target/debug/deps/parameter_substitution-b508cc0a7c19715b)
+
+running 2 tests
+test an_undeclared_parameter_names_the_refused_coordinate ... ok
+test substitution_is_atomic_and_changes_the_derived_identity_only ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/power_operation.rs (target/debug/deps/power_operation-690a5a2eb0234e91)
+
+running 3 tests
+test power_operation_preserves_v2_numerical_semantics_when_roundtripped ... ok
+test power_operation_roundtrips_through_the_model_document ... ok
+test power_operation_computes_exactly_through_the_interpreter ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/prefix_continuation.rs (target/debug/deps/prefix_continuation-f02e9cc60e2a753b)
+
+running 2 tests
+test completion_seal_is_not_a_resumable_prefix ... ok
+test prefix_regenerates_disposable_state_and_emits_identical_suffix ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/presence.rs (target/debug/deps/presence-19269dca02613f53)
+
+running 1 test
+test numeric_zero_is_present_and_distinct_from_other_states ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/projection.rs (target/debug/deps/projection-5a61d362fff09e7d)
+
+running 24 tests
+test inert_declared_parameter_is_rejected ... ok
+test probe_forbidden_recurrence_leaves_report_exact_authority ... ok
+test inert_declared_parameter_and_input_binding_kind_guards_are_observed ... ok
+test probe_dependency_must_be_earlier_than_owner ... ok
+test positive_bounds_and_initial_values_reject_exact_invalid_inputs ... ok
+test index_bound_errors_preserve_asymmetric_state_length_and_attempted_values ... ok
+test probe_initial_state_slot_kinds_are_checked ... ok
+test competing_invalidities_follow_the_complete_diagnostic_precedence ... ok
+test probe_previous_state_bindings_reject_wrong_index_and_kind ... ok
+test probe_recurrence_output_index_is_rejected ... ok
+test projection_dependencies_preserve_first_tree_occurrence_not_identity_sort_order ... ok
+test probe_rolling_window_requires_window_minus_one_initial_values ... ok
+test projection_reference_kind_must_match_the_referenced_projection ... ok
+test projection_set_rejects_shape_identity_and_dependency_failures ... ok
+test projection_set_reports_remaining_state_and_reference_failures ... ok
+test recurrence_and_previous_state_shapes_use_the_plan_exact_cases ... ok
+test recurrence_public_kind_is_the_output_slot_kind_not_the_first_slot ... ok
+test scalar_input_leaf_bound_to_truth_source_is_rejected ... ok
+test remaining_recurrence_errors_are_reported_as_complete_typed_values ... ok
+test three_node_cycle_preserves_traversal_from_lexicographically_least_id ... ok
+test truth_recurrence_slot_rejects_scalar_update ... ok
+test malformed_projection_wires_are_rejected_by_constructor_reconstruction ... ok
+test both_dependency_entry_families_reject_unknown_kind_order_and_cycles ... ok
+test muskingum_shape_uses_only_public_deterministic_projection_ir ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/quantum_arithmetic.rs (target/debug/deps/quantum_arithmetic-ec0bbc0fd7daa714)
+
+running 9 tests
+test release_all_of_an_exact_quantum_image_leaves_no_residual_count ... ok
+test sub_quantum_modelled_output_is_present_zero ... ok
+test expression_partition_of_an_exact_quantum_image_leaves_no_residual_count ... ok
+test residual_is_exact_and_non_negative ... ok
+test branch_amount_is_floored_to_a_whole_multiple ... ok
+test conserved_total_is_bit_stable_across_credits ... ok
+test repeated_quantum_execution_has_identical_log_digest ... ok
+test whole_count_residual_is_available_on_the_following_timestep ... ok
+test each_computed_branch_flooring_error_is_below_one_quantum_across_a_range ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/quantum_count_authority.rs (target/debug/deps/quantum_count_authority-8f8b78d4c1ab0bd4)
+
+running 4 tests
+test zero_count_transfer_entries_canonicalize_to_absence ... ok
+test colliding_public_values_keep_distinct_authoritative_transfer_counts ... ok
+test projection_count_provenance_does_not_cross_substance_quantums ... ok
+test authoritative_projection_preserves_a_colliding_count_through_execution ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/quantum_count_ceiling.rs (target/debug/deps/quantum_count_ceiling-40d8139d1996373f)
+
+running 1 test
+test replay_refuses_an_endpoint_count_above_the_exact_ceiling ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/quantum_declaration.rs (target/debug/deps/quantum_declaration-0d7d7d8bce0328b5)
+
+running 6 tests
+test ambiguous_initial_stock_projection_is_refused ... ok
+test uncountable_total_is_refused ... ok
+test misaligned_initial_stock_identifies_full_boundary_context ... ok
+test split_initial_stocks_above_the_countable_ceiling_are_refused ... ok
+test quantum_participates_in_model_identity ... ok
+test quantum_is_required_in_a_unit_declaration ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/registry_absence.rs (target/debug/deps/registry_absence-0d6a0899528d69a1)
+
+running 3 tests
+test criterion_suite::zero_transfer_is_authoritative_and_seal_authenticates_it ... ok
+test criterion_suite::unmodelled_is_not_zero_and_digest_mismatch_is_rejected ... ok
+test criterion_suite::replay_is_dense_exact_and_seal_distinguishes_prefix ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rule_execution.rs (target/debug/deps/rule_execution-f020eea0f7ceae27)
+
+running 1 test
+test executor_uses_forcing_and_commits_only_validated_transfers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rule_ir.rs (target/debug/deps/rule_ir-b6943e1920626fdd)
+
+running 18 tests
+test fixed_split_accumulates_retained_before_sorted_transfer_fractions ... ok
+test fixed_split_rejects_non_adjacent_duplicate_identity_with_distinct_fractions ... ok
+test every_operand_position_rejects_the_complete_wrong_kind ... ok
+test literal_and_fraction_bits_are_checked_and_canonical ... ok
+test fixed_split_sorts_rejects_duplicates_and_requires_exact_total ... ok
+test projection_reference_kinds_map_exactly_into_expression_kinds ... ok
+test partition_branch_identity_order_is_canonical_when_fraction_order_disagrees ... ok
+test identifiers_enforce_the_exact_shared_grammar ... ok
+test depth_uses_the_deepest_child_in_every_operand_position ... ok
+test representative_partition_sorts_and_has_the_exact_wire_contract ... ok
+test clamp_wire_contract_pins_each_child_slot ... ok
+test all_partition_shapes_round_trip ... ok
+test truth_valued_parameter_and_projection_expressions_report_truth ... ok
+test remaining_binary_wire_contracts_pin_kind_and_child_slots ... ok
+test views_expose_every_node_and_child_position_faithfully ... ok
+test representative_rule_has_the_exact_wire_contract ... ok
+test malformed_wire_inputs_cannot_bypass_construction ... ok
+test construction_and_deserialization_enforce_depth_128 ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/run_seal.rs (target/debug/deps/run_seal-c8a1f127d1d4ad34)
+
+running 3 tests
+test criterion_suite::zero_transfer_is_authoritative_and_seal_authenticates_it ... ok
+test criterion_suite::unmodelled_is_not_zero_and_digest_mismatch_is_rejected ... ok
+test criterion_suite::replay_is_dense_exact_and_seal_distinguishes_prefix ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sparse_substance_vector.rs (target/debug/deps/sparse_substance_vector-8678b1400482c78a)
+
+running 4 tests
+test ordered_accumulation_propagates_the_exact_v1_overflow ... ok
+test lookup_distinguishes_modelled_zero_from_not_modelled ... ok
+test canonical_sparse_iteration_and_accumulation_follow_registry_order ... ok
+test rejects_duplicate_and_unregistered_keys_before_sparse_omission ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/swallowed_allocation_rejection.rs (target/debug/deps/swallowed_allocation_rejection-c6d2831c5d343682)
+
+running 1 test
+test a_positive_allocation_that_cannot_debit_its_source_is_rejected_atomically ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/temporal.rs (target/debug/deps/temporal-3246dc132ed7d747)
+
+running 6 tests
+test calendar_arithmetic_accepts_exact_extremes_and_rejects_overflow ... ok
+test duration_construction_is_checked ... ok
+test fixed_step_calendar_converts_in_both_directions ... ok
+test calendar_arithmetic_rejects_products_wider_than_the_intermediate ... ok
+test reverse_conversion_rejects_unrepresentable_positions ... ok
+test run_horizon_is_inclusive_and_checked ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/topology.rs (target/debug/deps/topology-417ccf29b7b88609)
+
+running 8 tests
+test permits_an_empty_topology ... ok
+test rejects_duplicate_identity_across_endpoint_classifications ... ok
+test rejects_unknown_source_endpoint ... ok
+test rejects_duplicate_directed_connection ... ok
+test rejects_unknown_target_endpoint ... ok
+test accepts_boundary_connections_and_preserves_structural_classification ... ok
+test rejects_cycle_with_deterministic_diagnostics ... ok
+test topological_order_and_storage_are_independent_of_insertion_order ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/_incidence-c6d577ec49c74523)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests incidence_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+
+$ uv run --no-sync maturin develop --uv -q
+exit: 0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+🍹 Building a mixed python/rust project
+🐍 Found CPython 3.13 at /Users/nicolaslazaro/Desktop/work/incidence/.worktrees/visions/effort-22-carrier-experiments/bindings/python/.venv/bin/python
+🔗 Found pyo3 bindings
+Resolved 6 packages in 1ms
+Checked 6 packages in 0.08ms
+📦 Built wheel for CPython 3.13 to /var/folders/9m/29m0bx0j0rsdyqb0b6yns28w0000gn/T/.tmpP1SSsu/incidence-0.1.4-cp313-cp313-macosx_11_0_arm64.whl
+✏️ Setting installed package as editable
+🛠 Installed incidence-0.1.4
+
+
+$ uv run --no-sync pytest tests -q
+exit: 0
+................................................                         [100%]
+48 passed in 0.55s

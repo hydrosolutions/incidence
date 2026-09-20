@@ -62,6 +62,55 @@ constructors and return only JSON-serialisable dictionaries. `model_document`, `
 domain validation. `compile_model` remains the single validation entry point.
 
 
+## Realised-carrier partitions
+
+A dependent substance can explicitly follow an ordinary carrier partition in the same finite
+compartment. For example, use this disposition on a rule for `tracer`:
+
+```python
+disposition = {
+    "rule_ir_version": "v1",
+    "numerical_semantics_version": "v1",
+    "partition": {
+        "kind": "carrier_proportional",
+        "carrier": "carrier",
+        "branches": [
+            {"branch": "tracer-out", "carrier_branch": "carrier-out"},
+        ],
+    },
+}
+```
+
+The carrier rule must declare `carrier-out`. The dependent rule must bind `tracer-out` to the same
+destination. Both substances need declared quanta. This disposition uses the complete available
+dependent stock, not the scalar `expression` field of its surrounding rule; use `literal(0)` for
+that unused field. Independent partitions keep their existing semantics and do not imply coupling.
+
+For available dependent count `D`, available carrier count `C`, and realised carrier branch count
+`B`, the dependent branch receives `floor(D * B / C)` counts. The product and division use integer
+arithmetic. Both available counts come from the same pre-withdrawal stock, including initial stock
+and incoming transfers already committed in topology order. If `C` is zero, all dependent stock is
+retained. Any quantisation remainder also remains at the source, including when all carrier stock
+leaves. Modelled zero does not mean unmodelled substance or unknown physical composition.
+
+A mapping may select only a subset of carrier branches. Unmapped carrier branches transport none
+of that dependent substance. Duplicate dependent branches, repeated carrier mappings, mismatched
+destinations, self-reference, missing carriers and carriers that are themselves dependent are
+refused. Multiple independent dependents may share one carrier. Ordinary carrier plans are
+validated first; all substance dispositions are then committed in one atomic transaction.
+
+The operation and its canonical mappings participate in model identity. Identical models and run
+IDs reproduce identical authoritative logs. Temporal delay still requires an explicit projection
+such as `bounded_lag` and a finite inventory compartment; an extra topology node alone is not a
+delay. Physical mixing, process order, supported remobilisation and interpretation belong to the
+caller, not to this substance-neutral engine.
+
+`transfer_count_series` reads exact destination or source totals by substance and timestep. When
+several branches share a destination their counts are summed. It does not identify named branches,
+or separate multiple senders in a receiver total. `authoritative_log` exposes authenticated opaque
+bytes, not a Python exchange-table or restart API. Native prefix continuation remains available
+through the Rust core. Saved result data should not be described as a restart checkpoint.
+
 ## Naive sweep baseline
 
 `benchmarks/sweep_baseline.py` is the reproducible full-document baseline for parameter sweeps.
