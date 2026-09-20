@@ -889,6 +889,7 @@ impl ModelArtifactBuilder {
             &tables,
             &projections,
         )?;
+        validate_carrier_partitions(&rules, &self.registry, &self.execution_bindings)?;
         let mut units = BTreeMap::new();
         for (substance, unit) in self.units {
             if !self.registry.contains(&substance) {
@@ -968,6 +969,61 @@ impl ModelArtifactBuilder {
 /// Reports why a complete model artifact could not be constructed.
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum ModelArtifactError {
+    /// Fires when a dependent rule selects an unregistered carrier substance.
+    #[error(
+        "carrier `{carrier}` for compartment `{compartment}`, substance `{substance}` is absent from the registry"
+    )]
+    UnknownCarrierSubstance {
+        compartment: CompartmentId,
+        substance: SubstanceId,
+        carrier: SubstanceId,
+    },
+    /// Fires when a dependent rule selects its own substance as carrier.
+    #[error("compartment `{compartment}`, substance `{substance}` cannot be its own carrier")]
+    SelfCarrier {
+        compartment: CompartmentId,
+        substance: SubstanceId,
+    },
+    /// Fires when no rule exists for the carrier at this compartment.
+    #[error(
+        "missing carrier rule `{carrier}` for compartment `{compartment}`, substance `{substance}`"
+    )]
+    MissingCarrierRule {
+        compartment: CompartmentId,
+        substance: SubstanceId,
+        carrier: SubstanceId,
+    },
+    /// Fires when a carrier rule is itself carrier-proportional; chaining is unsupported.
+    #[error(
+        "carrier `{carrier}` for compartment `{compartment}`, substance `{substance}` is itself dependent"
+    )]
+    DependentCarrier {
+        compartment: CompartmentId,
+        substance: SubstanceId,
+        carrier: SubstanceId,
+    },
+    /// Fires when a mapping names a branch absent from its carrier partition.
+    #[error(
+        "unknown carrier branch `{branch}` on `{carrier}` for compartment `{compartment}`, substance `{substance}`"
+    )]
+    UnknownCarrierBranch {
+        compartment: CompartmentId,
+        substance: SubstanceId,
+        carrier: SubstanceId,
+        branch: TransferBranchId,
+    },
+    /// Fires when dependent and carrier branch destinations differ.
+    #[error(
+        "carrier destination `{carrier_destination}` differs from dependent destination `{destination}` for compartment `{compartment}`, substance `{substance}`, branch `{branch}`"
+    )]
+    CarrierDestinationMismatch {
+        compartment: CompartmentId,
+        substance: SubstanceId,
+        branch: TransferBranchId,
+        destination: CompartmentId,
+        carrier_destination: CompartmentId,
+    },
+
     /// Fires when an initial-stock value is bound to a different topology snapshot.
     #[error("initial stocks are bound to a different topology")]
     InitialStocksTopologyMismatch,
@@ -1357,7 +1413,8 @@ fn validate_rule_references(
         PartitionExprView::RetainAll
         | PartitionExprView::ReleaseAll { .. }
         | PartitionExprView::FixedFractionSplit { .. }
-        | PartitionExprView::ConstantFractionTransfer { .. } => {}
+        | PartitionExprView::ConstantFractionTransfer { .. }
+        | PartitionExprView::CarrierProportional { .. } => {}
     }
     for parameter in parameters {
         if !rule.parameters.contains_key(&parameter) {
@@ -1570,6 +1627,85 @@ fn validate_execution_graph_is_acyclic(
     }
 }
 
+fn validate_carrier_partitions(
+    rules: &BTreeMap<(CompartmentId, SubstanceId), RuleDefinition>,
+    registry: &SubstanceRegistry,
+    bindings: &ExecutionBindings,
+) -> Result<(), ModelArtifactError> {
+    for ((compartment, substance), rule) in rules {
+        let PartitionExprView::CarrierProportional { carrier, branches } =
+            rule.disposition().view()
+        else {
+            continue;
+        };
+        if !registry.contains(carrier) {
+            return Err(ModelArtifactError::UnknownCarrierSubstance {
+                compartment: compartment.clone(),
+                substance: substance.clone(),
+                carrier: carrier.clone(),
+            });
+        }
+        if carrier == substance {
+            return Err(ModelArtifactError::SelfCarrier {
+                compartment: compartment.clone(),
+                substance: substance.clone(),
+            });
+        }
+        let carrier_rule = rules
+            .get(&(compartment.clone(), carrier.clone()))
+            .ok_or_else(|| ModelArtifactError::MissingCarrierRule {
+                compartment: compartment.clone(),
+                substance: substance.clone(),
+                carrier: carrier.clone(),
+            })?;
+        if matches!(
+            carrier_rule.disposition().view(),
+            PartitionExprView::CarrierProportional { .. }
+        ) {
+            return Err(ModelArtifactError::DependentCarrier {
+                compartment: compartment.clone(),
+                substance: substance.clone(),
+                carrier: carrier.clone(),
+            });
+        }
+        let carrier_branches = partition_branches(carrier_rule.disposition());
+        for branch in branches {
+            if !carrier_branches.contains(branch.carrier_branch()) {
+                return Err(ModelArtifactError::UnknownCarrierBranch {
+                    compartment: compartment.clone(),
+                    substance: substance.clone(),
+                    carrier: carrier.clone(),
+                    branch: branch.carrier_branch().clone(),
+                });
+            }
+            let destination = bindings
+                .destination(compartment, substance, branch.branch())
+                .ok_or_else(|| ModelArtifactError::MissingTransferBranchBinding {
+                    compartment: compartment.clone(),
+                    substance: substance.clone(),
+                    branch: branch.branch().clone(),
+                })?;
+            let carrier_destination = bindings
+                .destination(compartment, carrier, branch.carrier_branch())
+                .ok_or_else(|| ModelArtifactError::MissingTransferBranchBinding {
+                    compartment: compartment.clone(),
+                    substance: carrier.clone(),
+                    branch: branch.carrier_branch().clone(),
+                })?;
+            if destination != carrier_destination {
+                return Err(ModelArtifactError::CarrierDestinationMismatch {
+                    compartment: compartment.clone(),
+                    substance: substance.clone(),
+                    branch: branch.branch().clone(),
+                    destination: destination.clone(),
+                    carrier_destination: carrier_destination.clone(),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 fn partition_branches(disposition: &PartitionExpr) -> BTreeSet<TransferBranchId> {
     let mut branches = BTreeSet::new();
     match disposition.view() {
@@ -1585,6 +1721,11 @@ fn partition_branches(disposition: &PartitionExpr) -> BTreeSet<TransferBranchId>
             branches.extend(split.iter().map(|part| part.branch().clone()));
         }
         PartitionExprView::ExpressionPartition { branches: split } => {
+            branches.extend(split.iter().map(|part| part.branch().clone()));
+        }
+        PartitionExprView::CarrierProportional {
+            branches: split, ..
+        } => {
             branches.extend(split.iter().map(|part| part.branch().clone()));
         }
     }

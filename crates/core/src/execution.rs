@@ -488,12 +488,11 @@ impl<'a> RuleInterpreter<'a> {
             )
         })?;
         let mut total_count = 0_u128;
-        for transfer in self
-            .log
-            .transfers()
-            .iter()
-            .filter(|x| x.timestep() == t && selector_matches(selector, x))
-        {
+        for transfer in self.log.transfers().iter().filter(|x| {
+            x.timestep() == t
+                && selector_matches(selector, x)
+                && x.quantum_count(selector.substance()).is_some()
+        }) {
             let count = transfer
                 .quantum_count(selector.substance())
                 .ok_or_else(|| {
@@ -702,7 +701,8 @@ impl StepExecutor {
                 continue;
             };
             let replay = replay_with_artifact(log, artifact)?;
-            let mut substances = Vec::new();
+            let mut stocks = BTreeMap::new();
+            let mut plans = BTreeMap::new();
             for substance in artifact.registry().iter() {
                 let available = match replay.final_state().finite_stock(compartment, substance) {
                     ValueState::Present(value) => value,
@@ -729,17 +729,83 @@ impl StepExecutor {
                 let rule = artifact.rules().find(|rule| {
                     rule.compartment() == compartment && rule.substance() == substance
                 });
-                let (retained, allocations) = if let Some(rule) = rule {
-                    evaluate_partition(artifact, log, rule, timestep, available, available_parts)?
+                stocks.insert(substance.clone(), (available, available_parts));
+                if rule.is_some_and(|rule| {
+                    matches!(
+                        rule.disposition().view(),
+                        PartitionExprView::CarrierProportional { .. }
+                    )
+                }) {
+                    continue;
+                }
+                let plan = if let Some(rule) = rule {
+                    evaluate_partition(
+                        artifact,
+                        log,
+                        rule,
+                        timestep,
+                        available,
+                        available_parts,
+                        None,
+                    )?
                 } else {
-                    (available, Vec::new())
+                    EvaluatedPartition {
+                        available_count: available_parts,
+                        retained: available,
+                        allocations: Vec::new(),
+                        branch_counts: BTreeMap::new(),
+                    }
                 };
-                substances.push(SubstanceDisposition::new(
-                    substance.clone(),
-                    retained,
-                    allocations,
-                ));
+                plans.insert(substance.clone(), plan);
             }
+            // Every carrier plan is validated before any dependent plan. No transfer is committed
+            // between these passes, so all pools include the same initial and incoming inventory.
+            for rule in artifact
+                .rules()
+                .filter(|rule| rule.compartment() == compartment)
+            {
+                let PartitionExprView::CarrierProportional { carrier, .. } =
+                    rule.disposition().view()
+                else {
+                    continue;
+                };
+                let carrier_plan =
+                    plans
+                        .get(carrier)
+                        .ok_or_else(|| ExecutionError::MissingValue {
+                            compartment: compartment.clone(),
+                            substance: rule.substance().clone(),
+                            timestep,
+                            kind: "carrier plan",
+                            identity: carrier.as_str().to_owned(),
+                        })?;
+                let (available, available_count) = stocks
+                    .get(rule.substance())
+                    .copied()
+                    .ok_or_else(|| ExecutionError::MissingValue {
+                        compartment: compartment.clone(),
+                        substance: rule.substance().clone(),
+                        timestep,
+                        kind: "stock",
+                        identity: rule.substance().as_str().to_owned(),
+                    })?;
+                let plan = evaluate_partition(
+                    artifact,
+                    log,
+                    rule,
+                    timestep,
+                    available,
+                    available_count,
+                    Some(carrier_plan),
+                )?;
+                plans.insert(rule.substance().clone(), plan);
+            }
+            let substances: Vec<_> = plans
+                .into_iter()
+                .map(|(substance, plan)| {
+                    SubstanceDisposition::new(substance, plan.retained, plan.allocations)
+                })
+                .collect();
             ValidatedTransaction::commit(
                 log,
                 artifact,
@@ -750,6 +816,14 @@ impl StepExecutor {
     }
 }
 
+/// A validated, uncommitted partition with branch counts available to dependent rules.
+struct EvaluatedPartition {
+    available_count: u64,
+    retained: NonNegativeAmount,
+    allocations: Vec<Allocation>,
+    branch_counts: BTreeMap<TransferBranchId, QuantumCount>,
+}
+
 fn evaluate_partition(
     artifact: &ModelArtifact,
     log: &AuthoritativeLog,
@@ -757,7 +831,8 @@ fn evaluate_partition(
     timestep: TimestepIndex,
     available: NonNegativeAmount,
     available_count: u64,
-) -> Result<(NonNegativeAmount, Vec<Allocation>), ExecutionError> {
+    carrier_plan: Option<&EvaluatedPartition>,
+) -> Result<EvaluatedPartition, ExecutionError> {
     let interpreter = RuleInterpreter::new(artifact, log, rule, timestep);
     let s = artifact.versions().numerical_semantics();
     let quantum =
@@ -771,6 +846,7 @@ fn evaluate_partition(
                 identity: rule.substance().as_str().to_owned(),
             })?;
     let mut allocations = Vec::new();
+    let mut branch_counts = BTreeMap::new();
     let mut transfer_count = 0_u128;
     let mut add_branch = |branch: &TransferBranchId,
                           value: f64,
@@ -840,6 +916,7 @@ fn evaluate_partition(
             }
         };
         allocations.push(Allocation::from_count(target, quantized, authoritative));
+        branch_counts.insert(branch.clone(), authoritative);
         transfer_count += u128::from(count);
         Ok(())
     };
@@ -894,6 +971,57 @@ fn evaluate_partition(
                 )?;
             }
         }
+        PartitionExprView::CarrierProportional { carrier, branches } => {
+            let plan = carrier_plan
+                .ok_or_else(|| interpreter.missing("carrier plan", carrier.as_str().to_owned()))?;
+            let substance_index = artifact
+                .registry()
+                .iter()
+                .position(|substance| substance == rule.substance())
+                .ok_or_else(|| {
+                    interpreter.missing("substance", rule.substance().as_str().to_owned())
+                })?;
+            for branch in branches {
+                let realised =
+                    plan.branch_counts
+                        .get(branch.carrier_branch())
+                        .ok_or_else(|| {
+                            interpreter.missing(
+                                "carrier branch",
+                                branch.carrier_branch().as_str().to_owned(),
+                            )
+                        })?;
+                // The product of two u64 counts fits u128; available counts and every carrier
+                // branch are bounded by the existing count ceiling and validated plan closure.
+                let count = if plan.available_count == 0 {
+                    0
+                } else {
+                    u64::try_from(
+                        u128::from(available_count) * u128::from(realised.value())
+                            / u128::from(plan.available_count),
+                    )
+                    .map_err(|_| {
+                        interpreter
+                            .missing("proportional count", branch.branch().as_str().to_owned())
+                    })?
+                };
+                let count = QuantumCount::try_from(count).map_err(|_| {
+                    interpreter.missing("proportional count", branch.branch().as_str().to_owned())
+                })?;
+                let value = quantum.to_value(count.value()).ok_or_else(|| {
+                    interpreter.missing("proportional amount", branch.branch().as_str().to_owned())
+                })?;
+                add_branch(
+                    branch.branch(),
+                    value,
+                    Some(AuthoritativeCount {
+                        substance_index,
+                        quantum_bits: quantum.value().to_bits(),
+                        count,
+                    }),
+                )?;
+            }
+        }
     }
     if transfer_count > u128::from(available_count) {
         let requested = allocations.iter().try_fold(0.0, |total, allocation| {
@@ -918,7 +1046,12 @@ fn evaluate_partition(
                 bits: available.value().to_bits(),
             })?;
     let retained = amount(rule, timestep, retained_value)?;
-    Ok((retained, allocations))
+    Ok(EvaluatedPartition {
+        available_count,
+        retained,
+        allocations,
+        branch_counts,
+    })
 }
 fn amount(
     rule: &RuleDefinition,

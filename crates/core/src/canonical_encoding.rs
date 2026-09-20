@@ -38,6 +38,7 @@ pub enum CanonicalField {
     RuleTableIdentity,
     RuleLiteral,
     PartitionBranches,
+    PartitionCarrierSubstance,
     PartitionBranchIdentity,
     PartitionFraction,
     ProjectionIdentity,

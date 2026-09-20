@@ -3,6 +3,7 @@
 use crate::canonical_encoding::{
     CanonicalEncode, CanonicalEncodingError, CanonicalField, CanonicalPayloadWriter,
 };
+use crate::identity::SubstanceId;
 use crate::non_negative_amount::NonNegativeAmount;
 use crate::numerical_semantics::{AccumulationError, NumericalSemanticsVersion};
 use crate::rule_expression::RuleExpr;
@@ -89,11 +90,39 @@ impl ExpressionBranch {
     }
 }
 
+/// One dependent transfer mapped to a realised carrier branch at the same compartment.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CarrierBranch {
+    branch: TransferBranchId,
+    carrier_branch: TransferBranchId,
+}
+impl CarrierBranch {
+    #[must_use]
+    pub fn new(branch: TransferBranchId, carrier_branch: TransferBranchId) -> Self {
+        Self {
+            branch,
+            carrier_branch,
+        }
+    }
+    #[must_use]
+    pub fn branch(&self) -> &TransferBranchId {
+        &self.branch
+    }
+    #[must_use]
+    pub fn carrier_branch(&self) -> &TransferBranchId {
+        &self.carrier_branch
+    }
+}
+
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum PartitionExprError {
     /// Fires when a partition names one transfer branch more than once.
     #[error("partition contains duplicate branch {branch}")]
     DuplicateBranch { branch: TransferBranchId },
+    /// Fires when a dependent partition maps one carrier branch more than once.
+    #[error("partition maps carrier branch {branch} more than once")]
+    DuplicateCarrierBranch { branch: TransferBranchId },
     /// Fires when an expression-valued branch is not scalar.
     #[error("expression branch {branch} must be scalar")]
     NonScalarExpression { branch: TransferBranchId },
@@ -139,6 +168,10 @@ enum PartitionNode {
     ExpressionPartition {
         branches: Vec<ExpressionBranch>,
     },
+    CarrierProportional {
+        carrier: SubstanceId,
+        branches: Vec<CarrierBranch>,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -168,6 +201,10 @@ pub enum PartitionExprView<'a> {
     },
     ExpressionPartition {
         branches: &'a [ExpressionBranch],
+    },
+    CarrierProportional {
+        carrier: &'a SubstanceId,
+        branches: &'a [CarrierBranch],
     },
 }
 
@@ -314,6 +351,41 @@ impl PartitionExpr {
             node: PartitionNode::ExpressionPartition { branches },
         })
     }
+    /// Allocates dependent counts in proportion to realised carrier counts.
+    ///
+    /// Each mapped branch receives floor(dependent_available * carrier_branch / carrier_available).
+    /// Zero carrier stock retains every dependent count. Unmapped counts remain at the source.
+    /// Cross-rule carrier and destination checks occur when the model artifact is built.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for duplicate dependent or carrier branch identities.
+    pub fn carrier_proportional(
+        rule_ir: RuleIrVersion,
+        semantics: NumericalSemanticsVersion,
+        carrier: SubstanceId,
+        mut branches: Vec<CarrierBranch>,
+    ) -> Result<Self, PartitionExprError> {
+        branches.sort_by(|left, right| left.branch.cmp(&right.branch));
+        let mut carriers = std::collections::BTreeSet::new();
+        for (index, branch) in branches.iter().enumerate() {
+            if index > 0 && branches[index - 1].branch == branch.branch {
+                return Err(PartitionExprError::DuplicateBranch {
+                    branch: branch.branch.clone(),
+                });
+            }
+            if !carriers.insert(&branch.carrier_branch) {
+                return Err(PartitionExprError::DuplicateCarrierBranch {
+                    branch: branch.carrier_branch.clone(),
+                });
+            }
+        }
+        Ok(Self {
+            rule_ir,
+            semantics,
+            node: PartitionNode::CarrierProportional { carrier, branches },
+        })
+    }
     pub fn rule_ir_version(&self) -> RuleIrVersion {
         self.rule_ir
     }
@@ -342,6 +414,9 @@ impl PartitionExpr {
             }
             PartitionNode::ExpressionPartition { branches } => {
                 PartitionExprView::ExpressionPartition { branches }
+            }
+            PartitionNode::CarrierProportional { carrier, branches } => {
+                PartitionExprView::CarrierProportional { carrier, branches }
             }
         }
     }
@@ -374,6 +449,10 @@ enum PartitionNodeRef<'a> {
     },
     ExpressionPartition {
         branches: &'a [ExpressionBranch],
+    },
+    CarrierProportional {
+        carrier: &'a str,
+        branches: &'a [CarrierBranch],
     },
 }
 #[derive(Serialize)]
@@ -410,6 +489,12 @@ impl Serialize for PartitionExpr {
             }
             PartitionNode::ExpressionPartition { branches } => {
                 PartitionNodeRef::ExpressionPartition { branches }
+            }
+            PartitionNode::CarrierProportional { carrier, branches } => {
+                PartitionNodeRef::CarrierProportional {
+                    carrier: carrier.as_str(),
+                    branches,
+                }
             }
         };
         PartitionWireRef {
@@ -449,6 +534,10 @@ enum OwnedNode {
     },
     ExpressionPartition {
         branches: Vec<ExpressionBranch>,
+    },
+    CarrierProportional {
+        carrier: String,
+        branches: Vec<CarrierBranch>,
     },
 }
 #[derive(Deserialize)]
@@ -490,6 +579,13 @@ impl<'de> Deserialize<'de> for PartitionExpr {
             OwnedNode::ExpressionPartition { branches } => {
                 Self::expression_partition(r, s, branches).map_err(serde::de::Error::custom)
             }
+            OwnedNode::CarrierProportional { carrier, branches } => Self::carrier_proportional(
+                r,
+                s,
+                SubstanceId::parse(&carrier).map_err(serde::de::Error::custom)?,
+                branches,
+            )
+            .map_err(serde::de::Error::custom),
         }
     }
 }
@@ -546,6 +642,21 @@ impl CanonicalEncode for PartitionExpr {
                         branch.branch.as_str(),
                     )?;
                     branch.expression.encode_payload_unframed(w)?;
+                }
+            }
+            PartitionNode::CarrierProportional { carrier, branches } => {
+                w.write_u8(0x06);
+                w.write_string(CanonicalField::PartitionCarrierSubstance, carrier.as_str())?;
+                w.write_count(CanonicalField::PartitionBranches, branches.len())?;
+                for branch in branches {
+                    w.write_string(
+                        CanonicalField::PartitionBranchIdentity,
+                        branch.branch.as_str(),
+                    )?;
+                    w.write_string(
+                        CanonicalField::PartitionBranchIdentity,
+                        branch.carrier_branch.as_str(),
+                    )?;
                 }
             }
         }
