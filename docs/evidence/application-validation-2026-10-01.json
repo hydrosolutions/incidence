@@ -1,0 +1,447 @@
+{
+  "schema_version": 1,
+  "record_date": "2026-10-01",
+  "purpose": "Selected exact result and independent review fields; not a runnable harness or complete audit. Source filenames identify archive records, not repository-local links.",
+  "source_project": "hydrosolutions/zarafshan-taqsim",
+  "tested_versions": {
+    "incidence": "665da4e0d81ab28921b8d5d2edbb9be27f4ec612",
+    "taqsim": "54c00a8784704dd12ef74de38cd5bb881df30f6d",
+    "fishy": "881660e8901987d63d89caf61ef0d30991000301"
+  },
+  "platform": "macOS arm64; Python 3.13 for Python applications",
+  "native_python_binary_sha256": "8809cf3b2797a709e14a98bc6aeabd844778d67d4b44f7137f8b2189aaefbfa5",
+  "archives": [
+    {
+      "id": "decision_applications_2026-10-01",
+      "filename": "decision_applications_2026-10-01.zip",
+      "sha256": "12c1fd86ca78aa7fdfffea3ec3138716b6cb41fd6e71cb18986c14cfec25749e",
+      "availability": "Campaign handoff archive; not distributed with this documentation excerpt."
+    },
+    {
+      "id": "thermal_season_timeout_2026-09-30",
+      "filename": "thermal_season_timeout_2026-09-30.zip",
+      "sha256": "b2ba3ea58052f5d4a380bc2cc41dcef024da39bc770597c73fba83e8d5f0cc88",
+      "availability": "Campaign handoff archive; not distributed with this documentation excerpt."
+    },
+    {
+      "id": "thermal_season_retry_timeout_2026-10-01",
+      "filename": "thermal_season_retry_timeout_2026-10-01.zip",
+      "sha256": "2726bb7c7519d1a47248fa84b592342426dae31bb68649b55418e765afe347cd",
+      "availability": "Campaign handoff archive; not distributed with this documentation excerpt."
+    }
+  ],
+  "records": [
+    {
+      "id": "controlled-review",
+      "source_file": "docs/eflow_report/report/internal_audits/application_stress_2026-10-01/incidence/INDEPENDENT_READBACK.json",
+      "source_sha256": "b440a832c8d4f92998b557f944f17a10581016202573685ebd4205bf24b92bae",
+      "source_bytes": 3199,
+      "archive_members": [
+        {
+          "archive_id": "decision_applications_2026-10-01",
+          "member": "repository/docs/eflow_report/report/internal_audits/application_stress_2026-10-01/incidence/INDEPENDENT_READBACK.json"
+        }
+      ],
+      "selected_fields": {
+        "status": "pass",
+        "cell_count": 24,
+        "stock_day_checks": 7107,
+        "native_executions_started_by_reviewer": 0,
+        "cells": [
+          {
+            "case": "chain_size_0_4nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 15
+          },
+          {
+            "case": "chain_size_1_8nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 27
+          },
+          {
+            "case": "chain_size_2_16nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 51
+          },
+          {
+            "case": "chain_size_3_32nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 99
+          },
+          {
+            "case": "chain_size_4_64nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 195
+          },
+          {
+            "case": "chain_horizon_0_4nodes_1days",
+            "status": "pass",
+            "stock_day_checks": 5
+          },
+          {
+            "case": "chain_horizon_1_4nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 15
+          },
+          {
+            "case": "chain_horizon_2_4nodes_7days",
+            "status": "pass",
+            "stock_day_checks": 35
+          },
+          {
+            "case": "chain_horizon_3_4nodes_14days",
+            "status": "pass",
+            "stock_day_checks": 70
+          },
+          {
+            "case": "chain_horizon_4_4nodes_30days",
+            "status": "pass",
+            "stock_day_checks": 150
+          },
+          {
+            "case": "chain_horizon_5_4nodes_92days",
+            "status": "pass",
+            "stock_day_checks": 460
+          },
+          {
+            "case": "chain_horizon_6_4nodes_365days",
+            "status": "pass",
+            "stock_day_checks": 1825
+          },
+          {
+            "case": "storage_horizon_0_5nodes_1days",
+            "status": "pass",
+            "stock_day_checks": 6
+          },
+          {
+            "case": "storage_horizon_1_5nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 18
+          },
+          {
+            "case": "storage_horizon_2_5nodes_7days",
+            "status": "pass",
+            "stock_day_checks": 42
+          },
+          {
+            "case": "storage_horizon_3_5nodes_14days",
+            "status": "pass",
+            "stock_day_checks": 84
+          },
+          {
+            "case": "storage_horizon_4_5nodes_30days",
+            "status": "pass",
+            "stock_day_checks": 180
+          },
+          {
+            "case": "storage_horizon_5_5nodes_92days",
+            "status": "pass",
+            "stock_day_checks": 552
+          },
+          {
+            "case": "storage_horizon_6_5nodes_365days",
+            "status": "pass",
+            "stock_day_checks": 2190
+          },
+          {
+            "case": "small_repetitions_0_4nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 15
+          },
+          {
+            "case": "small_repetitions_1_4nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 15
+          },
+          {
+            "case": "small_repetitions_2_4nodes_3days",
+            "status": "pass",
+            "stock_day_checks": 15
+          },
+          {
+            "case": "active_ensemble_0_5nodes_7days",
+            "status": "pass",
+            "stock_day_checks": 756,
+            "policies": 9
+          },
+          {
+            "case": "full_basin_one_day_0_61nodes_1days",
+            "status": "pass",
+            "stock_day_checks": 287,
+            "saved_projection_comparisons": 321,
+            "max_saved_projection_error_litres": "0.000001000",
+            "projection_interpretation": "Float representation agrees far below the 1 L quantum; native counts are exact."
+          }
+        ]
+      }
+    },
+    {
+      "id": "multiyear-results",
+      "source_file": "docs/eflow_report/report/internal_audits/extended_applications_2026-10-01/multiyear/results/campaign.json",
+      "source_sha256": "5ab04b4c7759f8b3dd4c4f9231b280dca0426efde5f3f57a618634d8a6a5553d",
+      "source_bytes": 39714,
+      "archive_members": [
+        {
+          "archive_id": "decision_applications_2026-10-01",
+          "member": "repository/docs/eflow_report/report/internal_audits/extended_applications_2026-10-01/multiyear/results/campaign.json"
+        }
+      ],
+      "selected_fields": [
+        {
+          "case": "RES_Akdarya-drought-recovery-30",
+          "status": "passed",
+          "site": "RES_Akdarya",
+          "scenario": "drought-recovery",
+          "days": 30,
+          "daily_exact_policy_comparisons": 120,
+          "daily_exact_balance_checks": 30
+        },
+        {
+          "case": "RES_Akdarya-drought-recovery-92",
+          "status": "passed",
+          "site": "RES_Akdarya",
+          "scenario": "drought-recovery",
+          "days": 92,
+          "daily_exact_policy_comparisons": 368,
+          "daily_exact_balance_checks": 92
+        },
+        {
+          "case": "RES_Akdarya-drought-recovery-365",
+          "status": "passed",
+          "site": "RES_Akdarya",
+          "scenario": "drought-recovery",
+          "days": 365,
+          "daily_exact_policy_comparisons": 1460,
+          "daily_exact_balance_checks": 365
+        },
+        {
+          "case": "RES_Akdarya-drought-recovery-730",
+          "status": "passed",
+          "site": "RES_Akdarya",
+          "scenario": "drought-recovery",
+          "days": 730,
+          "daily_exact_policy_comparisons": 2920,
+          "daily_exact_balance_checks": 730
+        },
+        {
+          "case": "RES_Akdarya-drought-recovery-1096",
+          "status": "passed",
+          "site": "RES_Akdarya",
+          "scenario": "drought-recovery",
+          "days": 1096,
+          "daily_exact_policy_comparisons": 4384,
+          "daily_exact_balance_checks": 1096
+        },
+        {
+          "case": "RES_Akdarya-baseline-1096",
+          "status": "passed",
+          "site": "RES_Akdarya",
+          "scenario": "baseline",
+          "days": 1096,
+          "daily_exact_policy_comparisons": 4384,
+          "daily_exact_balance_checks": 1096
+        },
+        {
+          "case": "RES_Kattakurgan-drought-recovery-30",
+          "status": "passed",
+          "site": "RES_Kattakurgan",
+          "scenario": "drought-recovery",
+          "days": 30,
+          "daily_exact_policy_comparisons": 120,
+          "daily_exact_balance_checks": 30
+        },
+        {
+          "case": "RES_Kattakurgan-drought-recovery-92",
+          "status": "passed",
+          "site": "RES_Kattakurgan",
+          "scenario": "drought-recovery",
+          "days": 92,
+          "daily_exact_policy_comparisons": 368,
+          "daily_exact_balance_checks": 92
+        },
+        {
+          "case": "RES_Kattakurgan-drought-recovery-365",
+          "status": "passed",
+          "site": "RES_Kattakurgan",
+          "scenario": "drought-recovery",
+          "days": 365,
+          "daily_exact_policy_comparisons": 1460,
+          "daily_exact_balance_checks": 365
+        },
+        {
+          "case": "RES_Kattakurgan-drought-recovery-730",
+          "status": "passed",
+          "site": "RES_Kattakurgan",
+          "scenario": "drought-recovery",
+          "days": 730,
+          "daily_exact_policy_comparisons": 2920,
+          "daily_exact_balance_checks": 730
+        },
+        {
+          "case": "RES_Kattakurgan-drought-recovery-1096",
+          "status": "passed",
+          "site": "RES_Kattakurgan",
+          "scenario": "drought-recovery",
+          "days": 1096,
+          "daily_exact_policy_comparisons": 4384,
+          "daily_exact_balance_checks": 1096
+        },
+        {
+          "case": "RES_Kattakurgan-baseline-1096",
+          "status": "passed",
+          "site": "RES_Kattakurgan",
+          "scenario": "baseline",
+          "days": 1096,
+          "daily_exact_policy_comparisons": 4384,
+          "daily_exact_balance_checks": 1096
+        }
+      ]
+    },
+    {
+      "id": "multiyear-admission",
+      "source_file": "docs/eflow_report/report/internal_audits/extended_applications_2026-10-01/multiyear/results/admission.json",
+      "source_sha256": "52f0e9681a6c48842bcc79c69cb2a3a272d03e0374bf0156cdb10a9ae17ddba2",
+      "source_bytes": 1574,
+      "archive_members": [
+        {
+          "archive_id": "decision_applications_2026-10-01",
+          "member": "repository/docs/eflow_report/report/internal_audits/extended_applications_2026-10-01/multiyear/results/admission.json"
+        }
+      ],
+      "selected_fields": {
+        "status": "passed",
+        "exact_prefix_comparisons": 2434,
+        "all_case_source_and_log_hashes": "verified"
+      }
+    },
+    {
+      "id": "recovery-review",
+      "source_file": "docs/eflow_report/report/internal_audits/decision_applications_2026-10-01/recovery/COORDINATOR_REVIEW.json",
+      "source_sha256": "da848786419d2861b0f38fb907a0d1bbe04269fe344a7e9b947c50ab3628cc36",
+      "source_bytes": 14349,
+      "archive_members": [
+        {
+          "archive_id": "decision_applications_2026-10-01",
+          "member": "repository/docs/eflow_report/report/internal_audits/decision_applications_2026-10-01/recovery/COORDINATOR_REVIEW.json"
+        }
+      ],
+      "selected_fields": {
+        "status": "passed",
+        "review": "Independent raw record-by-record two-substance ledger fold; exact native canonical bytes and stocks across valid cross-process cuts; negative native rejection evidence",
+        "native_transfer_records_folded": 346,
+        "valid_prefix_cases": 10,
+        "negative_controls": 6,
+        "scope": "audit codec and prefixes derived from completed reference; native full regeneration, not crash checkpoint or incremental speed benefit"
+      }
+    },
+    {
+      "id": "resolution-isolation-review",
+      "source_file": "docs/eflow_report/report/internal_audits/decision_applications_2026-10-01/resolution_isolation/independent_review.json",
+      "source_sha256": "ccdb4d32bdf55ddb41eaa543f983a0be8c3576d62beb7b2decb6020b995c19b1",
+      "source_bytes": 40099,
+      "archive_members": [
+        {
+          "archive_id": "decision_applications_2026-10-01",
+          "member": "repository/docs/eflow_report/report/internal_audits/decision_applications_2026-10-01/resolution_isolation/independent_review.json"
+        }
+      ],
+      "selected_fields": {
+        "status": "passed",
+        "native_cases": 17,
+        "counts": {
+          "source_hash_comparisons": 51,
+          "known_local_water": 1764,
+          "known_local_chloride": 1452,
+          "known_local_sulphate": 1764,
+          "known_basin_water": 441,
+          "known_basin_chloride": 361,
+          "known_basin_sulphate": 441,
+          "delay_exact_known": 1251,
+          "fishy_unknown": 208,
+          "fishy_known": 674,
+          "policy_transfer_envelopes": 2646,
+          "policy_stock_envelopes": 1764,
+          "unknown_local_chloride": 312,
+          "unknown_basin_chloride": 80,
+          "delay_unknown": 72,
+          "wet_missing_chloride": 72,
+          "replica_bytes_equal": 40,
+          "overlapping_process_waves": 2
+        },
+        "resolution_counts": {
+          "water_comparisons": 1800,
+          "unknown_pairs": 84,
+          "known_pairs": 276,
+          "within_envelope": 96,
+          "stable_away": 180
+        },
+        "candidate_issues": []
+      }
+    },
+    {
+      "id": "initial-timeout",
+      "source_file": "docs/eflow_report/report/internal_audits/thermal_season_2026-09-30/RESULTS.json",
+      "source_sha256": "13df90af8050f598e329f3bf8d283df0b3d75ce991cf837446424e5ca83eec68",
+      "source_bytes": 658,
+      "archive_members": [
+        {
+          "archive_id": "thermal_season_timeout_2026-09-30",
+          "member": "thermal_season_2026-09-30/RESULTS.json"
+        }
+      ],
+      "selected_fields": {
+        "status": "blocked",
+        "elapsed_seconds": 7200.132540250008,
+        "peak_rss_mib": 168.125,
+        "water_result_saved": false
+      }
+    },
+    {
+      "id": "retry-timeout",
+      "source_file": "docs/eflow_report/report/internal_audits/thermal_season_retry_2026-10-01/RESULTS.json",
+      "source_sha256": "34ab59f6ee14918671921947bcfd1278fd15cc2db116da6f2c8143482da7d3e0",
+      "source_bytes": 921,
+      "archive_members": [
+        {
+          "archive_id": "thermal_season_retry_timeout_2026-10-01",
+          "member": "retry/RESULTS.json"
+        }
+      ],
+      "selected_fields": {
+        "status": "blocked",
+        "reason": "wall_time_budget_exceeded",
+        "elapsed_seconds": 7200.266926790995,
+        "peak_rss_mib": 171.515625,
+        "last_completed_stage": "build",
+        "termination_stage": "native compiled model execution",
+        "simulated_day_reached": null,
+        "water_result_saved": false,
+        "water_conservation_validation_reached": false,
+        "seasonal_temperature_run": false,
+        "seasonal_fishy_run": false
+      }
+    },
+    {
+      "id": "retry-failure-review",
+      "source_file": "docs/eflow_report/report/internal_audits/thermal_season_retry_2026-10-01/failure_review.json",
+      "source_sha256": "e0b9599950563d23e6cdfb669c1d819102a65f919a066eca57814e4dd33e4566",
+      "source_bytes": 2694,
+      "archive_members": [
+        {
+          "archive_id": "thermal_season_retry_timeout_2026-10-01",
+          "member": "retry/failure_review.json"
+        }
+      ],
+      "selected_fields": {
+        "review_status": "confirmed_blocked_timeout",
+        "execution_passed": false,
+        "gate_matches_supervisor": true,
+        "copied_source_hashes_verified": 19,
+        "supervised_source_hashes_verified": 11,
+        "model_digest_same_as_prior": true,
+        "full_season_water_established": false,
+        "review_scope": "Read-only artifact/source/hash comparison; no simulation, runtime changes, fresh profile or old-audit edits."
+      }
+    }
+  ]
+}

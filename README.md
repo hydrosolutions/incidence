@@ -18,3 +18,8 @@ cargo check --workspace --all-targets
 cargo test --workspace
 cargo build --workspace
 ```
+
+## Application evidence
+
+See the [Zarafshan application validation record](docs/application-validation-2026-10-01.md)
+for tested scales, replay limits, evidence excerpts and the unresolved seasonal-run performance limit.
