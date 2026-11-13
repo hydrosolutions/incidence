@@ -434,6 +434,27 @@ impl AuthoritativeLog {
         self.transfers.push(transfer);
         Ok(())
     }
+
+    /// Checks the entire batch before appending; a refused batch leaves the log untouched.
+    pub(crate) fn append_batch(&mut self, transfers: Vec<Transfer>) -> Result<(), LogError> {
+        if self.seal.is_some() {
+            return Err(LogError::RecordAfterSeal);
+        }
+        let mut previous = self.transfers.last().map(Transfer::timestep);
+        for transfer in &transfers {
+            if let Some(previous) = previous
+                && transfer.timestep < previous
+            {
+                return Err(LogError::TimestepOrder {
+                    previous,
+                    next: transfer.timestep,
+                });
+            }
+            previous = Some(transfer.timestep);
+        }
+        self.transfers.extend(transfers);
+        Ok(())
+    }
     /// Seals the sequence at the model-declared final timestep.
     ///
     /// # Errors
@@ -875,7 +896,7 @@ fn replay(log: &AuthoritativeLog, artifact: Arc<ModelArtifact>) -> Result<Replay
     })
 }
 
-fn seed_state(artifact: &ModelArtifact) -> Result<StockState, ReplayError> {
+pub(crate) fn seed_state(artifact: &ModelArtifact) -> Result<StockState, ReplayError> {
     let mut finite = BTreeMap::new();
     let mut boundary = BTreeMap::new();
     let mut quantum_counts = BTreeMap::new();
@@ -918,7 +939,7 @@ fn seed_state(artifact: &ModelArtifact) -> Result<StockState, ReplayError> {
     })
 }
 
-fn apply_transfer(
+pub(crate) fn apply_transfer(
     state: &mut StockState,
     transfer: &Transfer,
     artifact: &ModelArtifact,

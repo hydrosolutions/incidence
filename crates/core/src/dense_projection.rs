@@ -86,6 +86,33 @@ pub enum DenseProjectionError {
     },
 }
 
+/// An immutable log/artifact pair whose complete independent replay succeeded once.
+/// Valid prefixes remain prefixes; dense constructors still require a completion seal.
+pub struct ValidatedTransferLog {
+    log: Arc<AuthoritativeLog>,
+    artifact: Arc<ModelArtifact>,
+    status: RunStatus,
+}
+
+impl ValidatedTransferLog {
+    /// Bind immutable inputs after the ordinary independent replay checks.
+    ///
+    /// # Errors
+    /// Returns the existing replay errors for mismatched artifacts, malformed records,
+    /// failed conservation or invalid seals. The pair cannot be mutated after validation.
+    pub fn new(
+        log: Arc<AuthoritativeLog>,
+        artifact: Arc<ModelArtifact>,
+    ) -> Result<Self, DenseProjectionError> {
+        let replay = CompletenessReader::read_with_artifact(&log, artifact.clone())?;
+        Ok(Self {
+            log,
+            artifact,
+            status: replay.status(),
+        })
+    }
+}
+
 /// One dense point, retaining its typed timestep coordinate beside its amount.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DenseHistoryPoint {
@@ -114,6 +141,22 @@ pub struct DenseTransferProjection {
 }
 
 impl DenseTransferProjection {
+    /// Project an already replayed immutable pair without repeating its full replay.
+    ///
+    /// # Errors
+    /// Retains the usual completeness, coordinate and ordered accumulation errors.
+    pub fn from_validated_log(
+        validated: &ValidatedTransferLog,
+        selector: AuthoritativeFactSelector,
+    ) -> Result<Self, DenseProjectionError> {
+        Self::from_validated(
+            &validated.log,
+            &validated.artifact,
+            validated.status,
+            selector,
+        )
+    }
+
     /// Rebuilds a dense projection using the historical artifact selected by Genesis.
     ///
     /// # Errors
@@ -331,6 +374,22 @@ pub struct DenseTransferCountProjection {
 }
 
 impl DenseTransferCountProjection {
+    /// Project exact counts from an already replayed immutable pair.
+    ///
+    /// # Errors
+    /// Retains the usual completeness, coordinate and count-ceiling errors.
+    pub fn from_validated_log(
+        validated: &ValidatedTransferLog,
+        selector: AuthoritativeFactSelector,
+    ) -> Result<Self, DenseProjectionError> {
+        Self::from_validated(
+            &validated.log,
+            &validated.artifact,
+            validated.status,
+            selector,
+        )
+    }
+
     /// Rebuilds a dense count projection using the historical artifact selected by Genesis.
     ///
     /// # Errors

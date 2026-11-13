@@ -1,13 +1,15 @@
 //! execution : ModelArtifact × AuthoritativeLogPrefix → AuthoritativeLog   (deterministic)
 //!
 //! The executor interprets the closed rule IR in calendar and topology order.  Its only mutation
-//! of authoritative state is [`ValidatedTransaction::commit`]; projector values are disposable
+//! of authoritative state is a checked disposition commit; projector values are disposable
 //! and are rebuilt from Genesis and transfer facts whenever a prefix is resumed.
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::ops::Range;
 
 use crate::disposition::{
-    Allocation, Disposition, SubstanceDisposition, TransactionError, ValidatedTransaction,
+    Allocation, CurrentRun, Disposition, SubstanceDisposition, TransactionError,
 };
 use crate::execution_bindings::RuleInputSource;
 use crate::identity::{CompartmentId, SubstanceId};
@@ -165,12 +167,50 @@ pub enum ExecutionError {
     TimestepOverflow { timestep: TimestepIndex },
 }
 
+// Derived state is local to one deterministic generation. A rule's identity is part of the
+// key because recurrence parameters are resolved in that rule's context, not globally.
+type RecurrenceKey = (CompartmentId, SubstanceId, ProjectionId);
+
+#[derive(Default)]
+struct ExecutionCache {
+    transfer_ranges: BTreeMap<TimestepIndex, Range<usize>>,
+    indexed_transfers: usize,
+    recurrences: BTreeMap<RecurrenceKey, BTreeMap<TimestepIndex, Vec<Value>>>,
+    #[cfg(test)]
+    recurrence_updates: usize,
+    #[cfg(test)]
+    fact_visits: usize,
+}
+
+impl ExecutionCache {
+    // Called only after an atomic successful commit. Even the last turn of a day invalidates
+    // that day's provisional recurrence states: a later historical read must see all facts.
+    fn committed(&mut self, log: &AuthoritativeLog, timestep: TimestepIndex) {
+        for (offset, transfer) in log.transfers()[self.indexed_transfers..].iter().enumerate() {
+            let index = self.indexed_transfers + offset;
+            self.transfer_ranges
+                .entry(transfer.timestep())
+                .and_modify(|range| range.end = index + 1)
+                .or_insert(index..index + 1);
+        }
+        self.indexed_transfers = log.transfer_count();
+        for history in self.recurrences.values_mut() {
+            history.remove(&timestep);
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "execution_cache_tests.rs"]
+mod cache_tests;
+
 /// The closed V1 rule-IR interpreter.
 pub struct RuleInterpreter<'a> {
     artifact: &'a ModelArtifact,
     log: &'a AuthoritativeLog,
     rule: &'a RuleDefinition,
     timestep: TimestepIndex,
+    cache: Option<&'a RefCell<ExecutionCache>>,
 }
 impl<'a> RuleInterpreter<'a> {
     #[must_use]
@@ -185,6 +225,7 @@ impl<'a> RuleInterpreter<'a> {
             log,
             rule,
             timestep,
+            cache: None,
         }
     }
     /// Evaluates the rule's scalar expression under the artifact's selected semantics.
@@ -428,17 +469,41 @@ impl<'a> RuleInterpreter<'a> {
                 }
             }
             ProjectionSpecView::FiniteRecurrence(rec) => {
-                let mut state = initial
-                    .values()
-                    .iter()
-                    .map(|v| projection_value(*v, id))
-                    .collect::<Result<Vec<_>, _>>()?;
+                let key = (
+                    self.rule.compartment().clone(),
+                    self.rule.substance().clone(),
+                    id.clone(),
+                );
+                let previous = self.cache.and_then(|cache| {
+                    cache.borrow().recurrences.get(&key).and_then(|history| {
+                        history
+                            .range(..=t)
+                            .next_back()
+                            .map(|(step, state)| (*step, state.clone()))
+                    })
+                });
+                if let Some((step, state)) = &previous {
+                    if *step == t {
+                        return Ok(state[rec.output_index()]);
+                    }
+                }
+                let (start, mut state) = match previous {
+                    Some((step, state)) => (step.value() + 1, state),
+                    None => (
+                        self.artifact.horizon().first().value(),
+                        initial
+                            .values()
+                            .iter()
+                            .map(|v| projection_value(*v, id))
+                            .collect::<Result<Vec<_>, _>>()?,
+                    ),
+                };
                 let params = self
                     .rule
                     .parameters()
                     .map(|(id, v)| (id.clone(), v))
                     .collect::<BTreeMap<_, _>>();
-                for ordinal in self.artifact.horizon().first().value()..=t.value() {
+                for ordinal in start..=t.value() {
                     let step = TimestepIndex::new(ordinal);
                     let mut bound = BTreeMap::new();
                     for b in rec.inputs() {
@@ -455,12 +520,25 @@ impl<'a> RuleInterpreter<'a> {
                         log: self.log,
                         rule: self.rule,
                         timestep: step,
+                        cache: self.cache,
                     };
                     state = rec
                         .updates()
                         .iter()
                         .map(|e| nested.eval(e, Some(&bound), Some(&params)))
                         .collect::<Result<Vec<_>, _>>()?;
+                    if let Some(cache) = self.cache {
+                        let mut cache = cache.borrow_mut();
+                        cache
+                            .recurrences
+                            .entry(key.clone())
+                            .or_default()
+                            .insert(step, state.clone());
+                        #[cfg(test)]
+                        {
+                            cache.recurrence_updates += 1;
+                        }
+                    }
                 }
                 Ok(state[rec.output_index()])
             }
@@ -488,7 +566,19 @@ impl<'a> RuleInterpreter<'a> {
             )
         })?;
         let mut total_count = 0_u128;
-        for transfer in self.log.transfers().iter().filter(|x| {
+        let range = self.cache.map_or(0..self.log.transfer_count(), |cache| {
+            cache
+                .borrow()
+                .transfer_ranges
+                .get(&t)
+                .cloned()
+                .unwrap_or(0..0)
+        });
+        #[cfg(test)]
+        if let Some(cache) = self.cache {
+            cache.borrow_mut().fact_visits += range.len();
+        }
+        for transfer in self.log.transfers()[range].iter().filter(|x| {
             x.timestep() == t
                 && selector_matches(selector, x)
                 && x.quantum_count(selector.substance()).is_some()
@@ -673,11 +763,20 @@ impl StepExecutor {
         artifact: &ModelArtifact,
         run_id: RunId,
     ) -> Result<AuthoritativeLog, ExecutionError> {
-        let mut log = AuthoritativeLog::for_run(run_id, artifact);
+        let cache = RefCell::new(ExecutionCache::default());
+        Self::generate_with_cache(artifact, run_id, Some(&cache))
+    }
+
+    fn generate_with_cache(
+        artifact: &ModelArtifact,
+        run_id: RunId,
+        cache: Option<&RefCell<ExecutionCache>>,
+    ) -> Result<AuthoritativeLog, ExecutionError> {
+        let mut run = CurrentRun::new(artifact, run_id)?;
         let mut ordinal = artifact.horizon().first().value();
         loop {
             let timestep = TimestepIndex::new(ordinal);
-            Self::execute_timestep(artifact, &mut log, timestep)?;
+            Self::execute_timestep(artifact, &mut run, timestep, cache)?;
             if timestep == artifact.horizon().last() {
                 break;
             }
@@ -685,6 +784,7 @@ impl StepExecutor {
                 .checked_add(1)
                 .ok_or(ExecutionError::TimestepOverflow { timestep })?;
         }
+        let mut log = run.into_log();
         log.seal(artifact.horizon().last())
             .map_err(|source| ExecutionError::Seal { source })?;
         Ok(log)
@@ -692,19 +792,20 @@ impl StepExecutor {
 
     fn execute_timestep(
         artifact: &ModelArtifact,
-        log: &mut AuthoritativeLog,
+        run: &mut CurrentRun<'_>,
         timestep: TimestepIndex,
+        cache: Option<&RefCell<ExecutionCache>>,
     ) -> Result<(), ExecutionError> {
         for compartment in artifact.topology().topological_order() {
             let Some(TopologyEndpoint::Finite(finite)) = artifact.topology().endpoint(compartment)
             else {
                 continue;
             };
-            let replay = replay_with_artifact(log, artifact)?;
+            let log = run.log();
             let mut stocks = BTreeMap::new();
             let mut plans = BTreeMap::new();
             for substance in artifact.registry().iter() {
-                let available = match replay.final_state().finite_stock(compartment, substance) {
+                let available = match run.state().finite_stock(compartment, substance) {
                     ValueState::Present(value) => value,
                     ValueState::Absent | ValueState::NotModelled => {
                         return Err(ExecutionError::MissingValue {
@@ -716,8 +817,8 @@ impl StepExecutor {
                         });
                     }
                 };
-                let available_parts = replay
-                    .final_state()
+                let available_parts = run
+                    .state()
                     .finite_quantum_count(compartment, substance)
                     .ok_or_else(|| ExecutionError::MissingValue {
                         compartment: compartment.clone(),
@@ -747,6 +848,7 @@ impl StepExecutor {
                         available,
                         available_parts,
                         None,
+                        cache,
                     )?
                 } else {
                     EvaluatedPartition {
@@ -797,6 +899,7 @@ impl StepExecutor {
                     available,
                     available_count,
                     Some(carrier_plan),
+                    cache,
                 )?;
                 plans.insert(rule.substance().clone(), plan);
             }
@@ -806,11 +909,10 @@ impl StepExecutor {
                     SubstanceDisposition::new(substance, plan.retained, plan.allocations)
                 })
                 .collect();
-            ValidatedTransaction::commit(
-                log,
-                artifact,
-                Disposition::new(timestep, finite.clone(), substances),
-            )?;
+            run.commit(Disposition::new(timestep, finite.clone(), substances))?;
+            if let Some(cache) = cache {
+                cache.borrow_mut().committed(run.log(), timestep);
+            }
         }
         Ok(())
     }
@@ -832,8 +934,10 @@ fn evaluate_partition(
     available: NonNegativeAmount,
     available_count: u64,
     carrier_plan: Option<&EvaluatedPartition>,
+    cache: Option<&RefCell<ExecutionCache>>,
 ) -> Result<EvaluatedPartition, ExecutionError> {
-    let interpreter = RuleInterpreter::new(artifact, log, rule, timestep);
+    let mut interpreter = RuleInterpreter::new(artifact, log, rule, timestep);
+    interpreter.cache = cache;
     let s = artifact.versions().numerical_semantics();
     let quantum =
         artifact

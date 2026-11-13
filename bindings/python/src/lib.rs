@@ -3,7 +3,9 @@
 //! This crate is only a containment and transport boundary. Domain validation, execution, and
 //! presence semantics remain in `incidence-core`.
 
-use incidence_core::dense_projection::{DenseTransferCountProjection, DenseTransferProjection};
+use incidence_core::dense_projection::{
+    DenseTransferCountProjection, DenseTransferProjection, ValidatedTransferLog,
+};
 use incidence_core::execution::execute_model;
 use incidence_core::identity::{CompartmentId, SubstanceId};
 use incidence_core::ledger::{AuthoritativeLog, QuantumCount, RunId, replay_with_artifact};
@@ -26,7 +28,7 @@ use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
 use std::any::Any;
 use std::collections::HashSet;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 const MAX_DOCUMENT_NESTING: usize = 256;
 const MAX_SERIES_LENGTH: u64 = 10_000_000;
@@ -41,7 +43,28 @@ struct CompiledModel {
 #[pyclass(frozen, module = "incidence._incidence")]
 struct CompletedRun {
     artifact: Arc<ModelArtifact>,
-    log: AuthoritativeLog,
+    log: Arc<AuthoritativeLog>,
+    validated: OnceLock<Result<ValidatedTransferLog, String>>,
+}
+
+impl CompletedRun {
+    fn new(artifact: Arc<ModelArtifact>, log: AuthoritativeLog) -> Self {
+        Self {
+            artifact,
+            log: Arc::new(log),
+            validated: OnceLock::new(),
+        }
+    }
+
+    fn validated(&self) -> PyResult<&ValidatedTransferLog> {
+        match self.validated.get_or_init(|| {
+            ValidatedTransferLog::new(self.log.clone(), self.artifact.clone())
+                .map_err(|error| error.to_string())
+        }) {
+            Ok(validated) => Ok(validated),
+            Err(error) => Err(PyValueError::new_err(error.clone())),
+        }
+    }
 }
 
 /// A sequence of result values that retains the presence state for every position.
@@ -423,7 +446,7 @@ impl CompiledModel {
                 };
                 let log = execute_model(&artifact, run_id)
                     .map_err(|error| PyValueError::new_err(error.to_string()))?;
-                Ok(CompletedRun { artifact, log })
+                Ok(CompletedRun::new(artifact, log))
             })
         })
     }
@@ -434,8 +457,7 @@ impl CompletedRun {
     /// Return the canonical authoritative-log bytes and their lowercase SHA-256 digest.
     fn authoritative_log<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyBytes>, String)> {
         contain(|| {
-            replay_with_artifact(&self.log, &self.artifact)
-                .map_err(|error| PyValueError::new_err(error.to_string()))?;
+            self.validated()?;
             let bytes = self.log.canonical_bytes();
             let digest = self.log.digest().to_hex();
             Ok((PyBytes::new(py, &bytes), digest))
@@ -478,12 +500,9 @@ impl CompletedRun {
             let substance = SubstanceId::parse(substance)
                 .map_err(|error| PyValueError::new_err(error.to_string()))?;
             let selector = series_selector(direction, compartment, substance)?;
-            let projection = DenseTransferProjection::from_log_with_artifact(
-                &self.log,
-                &self.artifact,
-                selector,
-            )
-            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+            let projection =
+                DenseTransferProjection::from_validated_log(self.validated()?, selector)
+                    .map_err(|error| PyValueError::new_err(error.to_string()))?;
 
             let first = first.unwrap_or_else(|| projection.horizon().first().value());
             let last = last.unwrap_or_else(|| projection.horizon().last().value());
@@ -554,12 +573,9 @@ impl CompletedRun {
             let substance = SubstanceId::parse(substance)
                 .map_err(|error| PyValueError::new_err(error.to_string()))?;
             let selector = series_selector(direction, compartment, substance)?;
-            let projection = DenseTransferCountProjection::from_log_with_artifact(
-                &self.log,
-                &self.artifact,
-                selector,
-            )
-            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+            let projection =
+                DenseTransferCountProjection::from_validated_log(self.validated()?, selector)
+                    .map_err(|error| PyValueError::new_err(error.to_string()))?;
 
             let first = first.unwrap_or_else(|| projection.horizon().first().value());
             let last = last.unwrap_or_else(|| projection.horizon().last().value());

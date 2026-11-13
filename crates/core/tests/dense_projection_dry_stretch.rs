@@ -148,3 +148,140 @@ fn an_unsealed_prefix_cannot_claim_that_a_dry_suffix_is_zero() {
     .expect_err("prefix must not become a dense complete history");
     assert_eq!(error, DenseProjectionError::IncompleteRun);
 }
+
+#[test]
+fn validated_log_matches_raw_projections_and_keeps_immutable_prefix_identity() {
+    use incidence_core::dense_projection::{DenseTransferCountProjection, ValidatedTransferLog};
+    use std::sync::Arc;
+
+    let artifact = Arc::new(fixture());
+    let water = SubstanceId::parse("water").expect("water");
+    let mut log = Arc::new(AuthoritativeLog::for_run(
+        RunId::from_bytes([6; 16]),
+        &artifact,
+    ));
+    let prefix = ValidatedTransferLog::new(log.clone(), artifact.clone()).expect("valid prefix");
+    let selector = AuthoritativeFactSelector::OutgoingTransferAmount {
+        compartment: compartment("store"),
+        substance: water.clone(),
+    };
+    assert!(matches!(
+        DenseTransferProjection::from_validated_log(&prefix, selector.clone()),
+        Err(DenseProjectionError::IncompleteRun)
+    ));
+    Arc::make_mut(&mut log)
+        .append(
+            Transfer::new(
+                TimestepIndex::new(14),
+                endpoint(&artifact, "store"),
+                endpoint(&artifact, "downstream"),
+                artifact.registry(),
+                [(
+                    water.clone(),
+                    QuantumAmount::new(
+                        artifact.quantum(&water).expect("quantum"),
+                        QuantumCount::try_from(1_000_003).expect("count"),
+                    )
+                    .expect("amount"),
+                )],
+            )
+            .expect("transfer"),
+        )
+        .expect("append");
+    Arc::make_mut(&mut log)
+        .seal(artifact.horizon().last())
+        .expect("seal");
+    // Mutating the caller's copy cannot upgrade the old immutable prefix proof.
+    assert!(matches!(
+        DenseTransferCountProjection::from_validated_log(&prefix, selector.clone()),
+        Err(DenseProjectionError::IncompleteRun)
+    ));
+    let validated =
+        ValidatedTransferLog::new(log.clone(), artifact.clone()).expect("completed proof");
+    for name in ["store", "downstream", "upstream", "ghost"] {
+        for substance in ["water", "unmodelled"] {
+            for incoming in [false, true] {
+                let compartment = compartment(name);
+                let substance = SubstanceId::parse(substance).expect("substance");
+                let selector = if incoming {
+                    AuthoritativeFactSelector::IncomingTransferAmount {
+                        compartment,
+                        substance,
+                    }
+                } else {
+                    AuthoritativeFactSelector::OutgoingTransferAmount {
+                        compartment,
+                        substance,
+                    }
+                };
+                assert_eq!(
+                    DenseTransferProjection::from_validated_log(&validated, selector.clone()),
+                    DenseTransferProjection::from_log_with_artifact(
+                        &log,
+                        &artifact,
+                        selector.clone()
+                    )
+                );
+                assert_eq!(
+                    DenseTransferCountProjection::from_validated_log(&validated, selector.clone()),
+                    DenseTransferCountProjection::from_log_with_artifact(&log, &artifact, selector)
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn validated_log_refuses_wrong_artifact_and_overdraw() {
+    use incidence_core::dense_projection::ValidatedTransferLog;
+    use std::sync::Arc;
+
+    let artifact = Arc::new(fixture());
+    let water = SubstanceId::parse("water").expect("water");
+    let log = AuthoritativeLog::for_run(RunId::from_bytes([7; 16]), &artifact);
+    let different = ModelArtifact::builder(
+        artifact.topology().clone(),
+        artifact.registry().clone(),
+        artifact.initial_stocks().clone(),
+        artifact.calendar(),
+        RunHorizon::new(TimestepIndex::new(10), TimestepIndex::new(60)).expect("horizon"),
+    )
+    .with_projections(ProjectionSet::new(vec![], vec![]).expect("projection set"))
+    .with_units(vec![(
+        water.clone(),
+        SubstanceUnit::new(
+            UnitId::parse("m3").expect("unit"),
+            Quantum::try_from(1.0e-6).expect("quantum"),
+        ),
+    )])
+    .build()
+    .expect("different artifact");
+    assert!(matches!(
+        ValidatedTransferLog::new(Arc::new(log.clone()), Arc::new(different)),
+        Err(DenseProjectionError::Replay { .. })
+    ));
+    let mut overdraw = log;
+    overdraw
+        .append(
+            Transfer::new(
+                TimestepIndex::new(14),
+                endpoint(&artifact, "store"),
+                endpoint(&artifact, "downstream"),
+                artifact.registry(),
+                [(
+                    water.clone(),
+                    QuantumAmount::new(
+                        artifact.quantum(&water).expect("quantum"),
+                        QuantumCount::try_from(6_000_000).expect("count"),
+                    )
+                    .expect("amount"),
+                )],
+            )
+            .expect("transfer"),
+        )
+        .expect("structurally valid append");
+    assert!(matches!(
+        ValidatedTransferLog::new(Arc::new(overdraw), artifact),
+        Err(DenseProjectionError::Replay { .. })
+    ));
+}

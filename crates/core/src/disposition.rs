@@ -2,7 +2,7 @@
 //!
 //! A disposition explicitly partitions every registered substance held by one finite
 //! compartment into a retained amount and outgoing transfers. Validation is performed against
-//! the authoritative fold and the log is replaced only after every generated transfer replays.
+//! the authoritative fold and transfers are appended only after every generated transfer folds.
 //! Substance entries commit in registry order; allocations retain their authored order.
 
 use std::collections::BTreeMap;
@@ -10,14 +10,18 @@ use std::collections::BTreeMap;
 use crate::endpoints::FiniteCompartment;
 use crate::identity::{CompartmentId, SubstanceId};
 use crate::ledger::{
-    AuthoritativeLog, LogError, QuantumAmount, QuantumCount, ReplayError, Transfer,
-    TransferEndpoint, TransferError, replay_with_artifact,
+    AuthoritativeLog, LogError, QuantumAmount, QuantumCount, ReplayError, RunId, StockState,
+    Transfer, TransferEndpoint, TransferError, apply_transfer, replay_with_artifact, seed_state,
 };
 use crate::model_artifact::ModelArtifact;
 use crate::non_negative_amount::NonNegativeAmount;
 use crate::presence::ValueState;
 use crate::temporal::TimestepIndex;
 use crate::topology::TopologyEndpoint;
+
+#[cfg(test)]
+#[path = "disposition_tests.rs"]
+mod tests;
 
 /// One explicitly authored destination and amount in a substance partition.
 #[derive(Clone, Debug, PartialEq)]
@@ -136,8 +140,42 @@ impl Disposition {
     }
 }
 
-/// The only write boundary for evaluated rule dispositions.
+/// Public write boundary for dispositions applied to an externally supplied log.
 pub enum ValidatedTransaction {}
+
+/// An execution-owned log and its disposable fold, bound to one immutable artifact.
+/// Exclusive ownership prevents a caller from pairing stale balances with a changed log.
+pub(crate) struct CurrentRun<'a> {
+    artifact: &'a ModelArtifact,
+    log: AuthoritativeLog,
+    state: StockState,
+}
+
+impl<'a> CurrentRun<'a> {
+    pub(crate) fn new(artifact: &'a ModelArtifact, run_id: RunId) -> Result<Self, ReplayError> {
+        Ok(Self {
+            artifact,
+            log: AuthoritativeLog::for_run(run_id, artifact),
+            state: seed_state(artifact)?,
+        })
+    }
+
+    pub(crate) fn log(&self) -> &AuthoritativeLog {
+        &self.log
+    }
+
+    pub(crate) fn state(&self) -> &StockState {
+        &self.state
+    }
+
+    pub(crate) fn commit(&mut self, disposition: Disposition) -> Result<(), TransactionError> {
+        commit_from_state(&mut self.log, self.artifact, &mut self.state, disposition)
+    }
+
+    pub(crate) fn into_log(self) -> AuthoritativeLog {
+        self.log
+    }
+}
 
 impl ValidatedTransaction {
     /// Validates an exhaustive disposition and atomically appends its derived transfers.
@@ -168,6 +206,21 @@ pub fn commit_disposition(
 ) -> Result<(), TransactionError> {
     let before = replay_with_artifact(log, artifact)
         .map_err(|source| TransactionError::Replay { source })?;
+    commit_from_state(
+        log,
+        artifact,
+        &mut before.final_state().clone(),
+        disposition,
+    )
+}
+
+/// Shared transaction checks for an independently replayed or execution-owned fold.
+fn commit_from_state(
+    log: &mut AuthoritativeLog,
+    artifact: &ModelArtifact,
+    state: &mut StockState,
+    disposition: Disposition,
+) -> Result<(), TransactionError> {
     validate_transaction_context(log, artifact, &disposition)?;
     let compartment = disposition.source.id().clone();
     let timestep = disposition.timestep;
@@ -201,7 +254,7 @@ pub fn commit_disposition(
                     substance: substance.clone(),
                     timestep,
                 })?;
-        let available = match before.final_state().finite_stock(&compartment, substance) {
+        let available = match state.finite_stock(&compartment, substance) {
             ValueState::Present(amount) => amount,
             ValueState::Absent | ValueState::NotModelled => {
                 return Err(TransactionError::StockUnavailable {
@@ -219,8 +272,7 @@ pub fn commit_disposition(
                     substance: substance.clone(),
                     timestep,
                 })?;
-        let available_count = before
-            .final_state()
+        let available_count = state
             .finite_quantum_count(&compartment, substance)
             .ok_or_else(|| TransactionError::StockUnavailable {
                 compartment: compartment.clone(),
@@ -317,17 +369,13 @@ pub fn commit_disposition(
             });
         }
     }
-    let mut staged = log.clone();
-    for transfer in transfers {
-        staged
-            .append(transfer)
-            .map_err(|source| TransactionError::Log { source })?;
+    let mut staged = state.clone();
+    for transfer in &transfers {
+        apply_transfer(&mut staged, transfer, artifact)
+            .map_err(|source| TransactionError::Replay { source })?;
     }
-
-    let after = replay_with_artifact(&staged, artifact)
-        .map_err(|source| TransactionError::Replay { source })?;
     for (substance, entry) in authored {
-        match after.final_state().finite_stock(&compartment, &substance) {
+        match staged.finite_stock(&compartment, &substance) {
             ValueState::Present(actual)
                 if actual.value().to_bits() == entry.retained.value().to_bits() => {}
             ValueState::Present(actual) => {
@@ -348,7 +396,9 @@ pub fn commit_disposition(
             }
         }
     }
-    *log = staged;
+    log.append_batch(transfers)
+        .map_err(|source| TransactionError::Log { source })?;
+    *state = staged;
     Ok(())
 }
 

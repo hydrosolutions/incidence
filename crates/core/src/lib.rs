@@ -2,6 +2,10 @@
 
 pub mod canonical_encoding;
 pub mod dense_projection;
+// Let internal regression tests reuse the public integration fixtures.
+#[cfg(test)]
+extern crate self as incidence_core;
+
 pub mod disposition;
 pub mod endpoints;
 pub mod execution;
